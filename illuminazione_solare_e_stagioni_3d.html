@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Illuminazione Solare e Stagioni - Modello 3D Interattivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #0b1120;
+            color: #f8fafc;
+            user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        /* Scrollbar sottile per pannello laterale su schermi piccoli */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 9999px;
+        }
+        input[type="range"] {
+            accent-color: #f59e0b;
+        }
+        .label-3d {
+            position: absolute;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            transition: opacity 0.15s;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <!-- Contenitore Canvas 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- Etichette 3D proiettate su schermo -->
+    <div id="labels-layer" class="fixed inset-0 pointer-events-none overflow-hidden"></div>
+
+    <!-- Badge Crediti Didattici in basso a sinistra -->
+    <div class="fixed bottom-3 left-3 z-10 pointer-events-none bg-slate-900/75 backdrop-blur-md border border-slate-700/60 px-3 py-1.5 rounded-full text-[11px] text-slate-300 shadow-lg">
+        Progetto didattico di <strong class="text-slate-100">Sara Sadocco</strong> • Sviluppo interattivo con Gemini
+    </div>
+
+    <!-- Pannello di Controllo Sinistro -->
+    <aside id="control-panel" class="fixed top-3 left-3 z-20 w-80 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-3.5rem)] overflow-y-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-4 shadow-2xl text-slate-100 transition-transform duration-300">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/70">
+            <div>
+                <h1 class="text-base font-bold text-amber-400 leading-tight">Illuminazione e Stagioni</h1>
+                <p class="text-[11px] text-slate-400">Modello 3D didattico (Asse verticale)</p>
+            </div>
+            <button id="toggle-panel-btn" class="sm:hidden p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs">
+                Nascondi
+            </button>
+        </div>
+
+        <!-- Sezione 1: Moto di Rivoluzione (Declinazione Solare) -->
+        <div class="mb-4 bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+            <div class="flex justify-between items-center mb-1.5">
+                <span class="text-xs font-semibold text-slate-200">Inclinazione Raggi (Declinazione δ)</span>
+                <span id="declination-badge" class="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">+23,4°</span>
+            </div>
+            <p id="season-desc" class="text-[11px] text-amber-200/90 mb-2 font-medium">Solstizio d'Estate (Emisfero Boreale)</p>
+            
+            <input type="range" id="declination-slider" min="-23.44" max="23.44" step="0.02" value="23.44" class="w-full cursor-pointer mb-2">
+            
+            <div class="flex justify-between text-[10px] text-slate-400 mb-3">
+                <span>-23,4° (Dic)</span>
+                <span>0° (Equinozi)</span>
+                <span>+23,4° (Giu)</span>
+            </div>
+
+            <!-- Pulsanti 4 Posizioni Chiave -->
+            <div class="grid grid-cols-2 gap-1.5 mb-2.5">
+                <button data-deg="23.44" data-season="Solstizio d'Estate (21 Giugno)" class="preset-btn active px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition">
+                    ☀️ Solstizio Estate
+                </button>
+                <button data-deg="-23.44" data-season="Solstizio d'Inverno (21 Dicembre)" class="preset-btn px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-700/80 text-slate-200 hover:bg-slate-600 transition">
+                    ❄️ Solstizio Inverno
+                </button>
+                <button data-deg="0" data-season="Equinozio di Primavera (20 Marzo)" class="preset-btn px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-700/80 text-slate-200 hover:bg-slate-600 transition">
+                    🌱 Equin. Primavera
+                </button>
+                <button data-deg="0" data-season="Equinozio d'Autunno (23 Settembre)" class="preset-btn px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-700/80 text-slate-200 hover:bg-slate-600 transition">
+                    🍂 Equin. Autunno
+                </button>
+            </div>
+
+            <button id="btn-revolution" class="w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1.5">
+                <span id="rev-icon">▶</span> <span id="rev-text">Simula Moto di Rivoluzione</span>
+            </button>
+        </div>
+
+        <!-- Sezione 2: Moto di Rotazione -->
+        <div class="mb-4 bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-semibold text-slate-200">Moto di Rotazione (Dì / Notte)</span>
+                <button id="btn-rotation" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition">
+                    ⏸ In Rotazione
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] text-slate-400">Velocità:</span>
+                <input type="range" id="rotation-speed" min="0" max="3" step="0.1" value="0.7" class="flex-1 cursor-pointer">
+            </div>
+        </div>
+
+        <!-- Sezione 2B: Osservatore P (Punto Rosso sul Meridiano) -->
+        <div class="mb-4 bg-slate-800/60 p-3 rounded-xl border border-rose-500/30">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                    Latitudine Punto Rosso (P)
+                </span>
+                <span id="obs-lat-badge" class="text-xs font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">45° N</span>
+            </div>
+            
+            <input type="range" id="obs-lat-slider" min="-90" max="90" step="0.5" value="45" class="w-full cursor-pointer my-1.5" style="accent-color: #f43f5e;">
+            
+            <div class="flex justify-between text-[10px] text-slate-400 mb-2">
+                <span>90° S (Polo Sud)</span>
+                <span>0° (Equatore)</span>
+                <span>90° N (Polo Nord)</span>
+            </div>
+
+            <button id="btn-obs-meridian" class="w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-rose-600/90 hover:bg-rose-500 text-white transition flex items-center justify-center gap-1.5 mb-2">
+                <span id="obs-anim-icon">▶</span> <span id="obs-anim-text">Muovi Punto P sul Meridiano</span>
+            </button>
+
+            <div class="text-[11px] bg-slate-900/70 rounded-lg p-2 border border-slate-700/60 flex justify-between items-center">
+                <span class="text-slate-400">Durata del dì a questa latitudine:</span>
+                <strong id="daylight-duration" class="text-amber-300">15h 26m</strong>
+            </div>
+        </div>
+
+        <!-- Sezione 3: Elementi Visibili (Checkbox) -->
+        <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50 space-y-2">
+            <span class="block text-xs font-semibold text-slate-200 mb-1">Elementi Geometrici</span>
+            
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-200">
+                <input type="checkbox" id="chk-tropics" checked class="w-4 h-4 rounded accent-amber-500 cursor-pointer">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+                    Tropici (Cancro e Capricorno ±23,4°)
+                </span>
+            </label>
+
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-200">
+                <input type="checkbox" id="chk-polars" checked class="w-4 h-4 rounded accent-cyan-400 cursor-pointer">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+                    Circoli Polari (Artico e Antartico ±66,6°)
+                </span>
+            </label>
+
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-200">
+                <input type="checkbox" id="chk-terminator" checked class="w-4 h-4 rounded accent-yellow-300 cursor-pointer">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-yellow-300 inline-block"></span>
+                    Circolo di Illuminazione
+                </span>
+            </label>
+
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-200">
+                <input type="checkbox" id="chk-rays" checked class="w-4 h-4 rounded accent-orange-500 cursor-pointer">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
+                    Raggi Solari e Angolo 90° al suolo
+                </span>
+            </label>
+
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-200">
+                <input type="checkbox" id="chk-labels" checked class="w-4 h-4 rounded accent-slate-400 cursor-pointer">
+                <span>Etichette 3D su schermo</span>
+            </label>
+        </div>
+    </aside>
+
+    <!-- Pulsante riapertura su mobile -->
+    <button id="open-panel-btn" class="hidden fixed top-3 left-3 z-20 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-xs font-semibold text-amber-400 shadow-lg">
+        ☰ Controlli
+    </button>
+
+    <!-- Box Informativo Didattico in Basso a Destra -->
+    <div id="info-callout" class="fixed bottom-3 right-3 z-10 max-w-xs sm:max-w-sm bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-xl p-3 text-xs shadow-xl pointer-events-none">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+            <strong id="subsolar-title" class="text-orange-300">Raggi perpendicolari (90°) al Tropico del Cancro</strong>
+        </div>
+        <p id="subsolar-detail" class="text-[11px] text-slate-300 leading-relaxed">
+            Il raggio solare centrale colpisce il suolo formando un angolo retto (90°) a <strong>23,4° Nord</strong>. Il Circolo di Illuminazione è tangente ai due Circoli Polari.
+        </p>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAZIONE SCENA THREE.JS ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x090f1d);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Posizionamento frontale leggermente inclinato per vedere reticolato, poli e raggi da destra
+        camera.position.set(1.5, 4.2, 16.5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.minDistance = 8;
+        controls.maxDistance = 30;
+
+        // Costanti astronomiche e geometriche
+        const R = 4.2; // Raggio sfera terrestre
+        const OBLIQUITY = 23.44; // Inclinazione eclittica in gradi
+
+        // --- 2. STELLE DI SFONDO ---
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 700;
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount * 3; i += 3) {
+            const r = 60 + Math.random() * 60;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPos[i] = r * Math.sin(phi) * Math.cos(theta);
+            starPos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+            starPos[i + 2] = r * Math.cos(phi);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xcbd5e1, size: 0.25, transparent: true, opacity: 0.7 });
+        scene.add(new THREE.Points(starGeo, starMat));
+
+        // --- 3. SFERA TERRESTRE CON SHADER PERSONALIZZATO DÌ / NOTTE ---
+        // Usiamo uno ShaderMaterial per garantire un confine Dì/Notte nitido, fisicamente esatto
+        // e ben leggibile anche con il reticolato sovrapposto.
+        const earthUniforms = {
+            sunDir: { value: new THREE.Vector3(1, 0, 0).normalize() },
+            dayColor: { value: new THREE.Color(0x38bdf8) },     // Azzurro oceano illuminato
+            twilightColor: { value: new THREE.Color(0x0284c7) },
+            nightColor: { value: new THREE.Color(0x0f172a) }    // Blu notte profondo
+        };
+
+        const earthShaderMat = new THREE.ShaderMaterial({
+            uniforms: earthUniforms,
+            vertexShader: `
+                varying vec3 vWorldNormal;
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 sunDir;
+                uniform vec3 dayColor;
+                uniform vec3 twilightColor;
+                uniform vec3 nightColor;
+                varying vec3 vWorldNormal;
+                varying vec2 vUv;
+
+                void main() {
+                    vec3 N = normalize(vWorldNormal);
+                    float intensity = dot(N, normalize(sunDir));
+
+                    // Continenti stilizzati procedurali leggeri per dare percezione della rotazione
+                    float lon = vUv.x * 6.2831853;
+                    float lat = (vUv.y - 0.5) * 3.1415926;
+                    float landPattern = sin(lon * 3.0 + sin(lat * 4.0)) * cos(lat * 3.0 - cos(lon * 2.0));
+                    bool isLand = landPattern > 0.28 && abs(lat) < 1.25;
+
+                    vec3 baseDay = isLand ? vec3(0.28, 0.72, 0.45) : dayColor;
+                    vec3 baseNight = isLand ? vec3(0.08, 0.16, 0.18) : nightColor;
+
+                    // Calcolo illuminazione con leggero gradiente atmosferico al terminatore
+                    float diffuse = max(intensity, 0.0);
+                    float litFactor = smoothstep(-0.04, 0.06, intensity);
+
+                    vec3 dayLit = baseDay * (0.55 + 0.55 * diffuse);
+                    vec3 finalColor = mix(baseNight, dayLit, litFactor);
+
+                    // Bagliore caldissimo sottile lungo il crepuscolo
+                    float twilight = exp(-pow(intensity * 18.0, 2.0)) * 0.18;
+                    finalColor += vec3(0.98, 0.55, 0.2) * twilight;
+
+                    gl_FragColor = vec4(finalColor, 0.94);
+                }
+            `,
+            transparent: true
+        });
+
+        const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 64), earthShaderMat);
+        scene.add(earthMesh);
+
+        // --- 4. GRUPPO ROTANTE DELLA TERRA (Reticolato, Paralleli Notevoli, Punto Test) ---
+        const rotatingEarthGroup = new THREE.Group();
+        scene.add(rotatingEarthGroup);
+
+        // Helper per creare cerchi di latitudine (paralleli)
+        function createParallelLine(latDeg, color, opacity = 0.5, dashed = false) {
+            const phi = THREE.MathUtils.degToRad(latDeg);
+            const r = (R + 0.015) * Math.cos(phi);
+            const y = (R + 0.015) * Math.sin(phi);
+            const pts = [];
+            const segments = 96;
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * Math.PI * 2;
+                pts.push(new THREE.Vector3(r * Math.sin(theta), y, r * Math.cos(theta)));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = dashed
+                ? new THREE.LineDashedMaterial({ color, dashSize: 0.22, gapSize: 0.12, transparent: true, opacity })
+                : new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+            const line = new THREE.Line(geo, mat);
+            if (dashed) line.computeLineDistances();
+            return line;
+        }
+
+        // Helper per creare meridiani
+        function createMeridianLine(lonDeg, color, opacity = 0.35) {
+            const lambda = THREE.MathUtils.degToRad(lonDeg);
+            const pts = [];
+            const segments = 64;
+            for (let i = 0; i <= segments; i++) {
+                const polar = (i / segments) * Math.PI;
+                pts.push(new THREE.Vector3(
+                    (R + 0.012) * Math.sin(polar) * Math.sin(lambda),
+                    (R + 0.012) * Math.cos(polar),
+                    (R + 0.012) * Math.sin(polar) * Math.cos(lambda)
+                ));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+        }
+
+        // Reticolato standard (ogni 15°)
+        for (let lat = -75; lat <= 75; lat += 15) {
+            if (lat === 0) continue; // Equatore aggiunto a parte
+            rotatingEarthGroup.add(createParallelLine(lat, 0xffffff, 0.22, false));
+        }
+        for (let lon = 0; lon < 360; lon += 15) {
+            const isGreenwich = (lon === 0);
+            rotatingEarthGroup.add(createMeridianLine(lon, isGreenwich ? 0xf87171 : 0xffffff, isGreenwich ? 0.75 : 0.22));
+        }
+
+        // Equatore (0°)
+        const equatorLine = createParallelLine(0, 0xfef08a, 0.9, false);
+        rotatingEarthGroup.add(equatorLine);
+
+        // Paralleli notevoli (Gruppi separati per toggle visibilità)
+        const tropicsGroup = new THREE.Group();
+        const tropicCancer = createParallelLine(OBLIQUITY, 0xfbbf24, 0.95, true);
+        const tropicCapricorn = createParallelLine(-OBLIQUITY, 0xfbbf24, 0.95, true);
+        tropicsGroup.add(tropicCancer, tropicCapricorn);
+        rotatingEarthGroup.add(tropicsGroup);
+
+        const polarsGroup = new THREE.Group();
+        const arcticCircle = createParallelLine(90 - OBLIQUITY, 0x22d3ee, 0.95, true);
+        const antarcticCircle = createParallelLine(-(90 - OBLIQUITY), 0x22d3ee, 0.95, true);
+        polarsGroup.add(arcticCircle, antarcticCircle);
+        rotatingEarthGroup.add(polarsGroup);
+
+        // Punto di osservazione rotante (Punto Rosso P) posizionabile lungo il meridiano di Greenwich (lon = 0°)
+        let currentObsLatDeg = 45;
+        const obsPoint = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 20, 20),
+            new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+        );
+        // Alone luminoso attorno al punto P per renderlo ben visibile anche nella notte
+        const obsHalo = new THREE.Mesh(
+            new THREE.RingGeometry(0.18, 0.26, 24),
+            new THREE.MeshBasicMaterial({ color: 0xfda4af, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+        );
+        obsPoint.add(obsHalo);
+
+        // Parallelo tratteggiato rosso che mostra la traiettoria di P durante la rotazione
+        let obsParallelLine = createParallelLine(currentObsLatDeg, 0xf43f5e, 0.8, true);
+        rotatingEarthGroup.add(obsParallelLine);
+        rotatingEarthGroup.add(obsPoint);
+
+        function updateObserverPosition(latDeg) {
+            currentObsLatDeg = latDeg;
+            const latRad = THREE.MathUtils.degToRad(latDeg);
+            const r = (R + 0.055) * Math.cos(latRad);
+            const y = (R + 0.055) * Math.sin(latRad);
+            
+            // Posiziona sul meridiano 0° (asse Z positivo nel sistema locale rotante)
+            obsPoint.position.set(0, y, r);
+            obsHalo.lookAt(new THREE.Vector3(0, y * 2, r * 2));
+
+            // Aggiorna il parallelo di rotazione del punto P
+            rotatingEarthGroup.remove(obsParallelLine);
+            obsParallelLine.geometry.dispose();
+            obsParallelLine = createParallelLine(latDeg, 0xf43f5e, 0.75, true);
+            rotatingEarthGroup.add(obsParallelLine);
+
+            // Aggiorna badge latitudine e calcolo astronomico durata del dì
+            const hem = latDeg > 0.1 ? ' N' : (latDeg < -0.1 ? ' S' : '');
+            document.getElementById('obs-lat-badge').textContent = `${Math.abs(latDeg).toFixed(1).replace('.', ',')}°${hem}`;
+            updateDaylightDuration();
+        }
+
+        function updateDaylightDuration() {
+            const latRad = THREE.MathUtils.degToRad(currentObsLatDeg);
+            const declRad = currentDeclinationRad;
+            const durationEl = document.getElementById('daylight-duration');
+
+            // Formula astronomica dell'angolo orario al tramonto: cos(H0) = -tan(lat) * tan(decl)
+            const cosH0 = -Math.tan(latRad) * Math.tan(declRad);
+
+            if (cosH0 <= -1) {
+                durationEl.textContent = "24h 00m (Sole di mezzanotte)";
+                durationEl.className = "text-amber-300 font-bold";
+            } else if (cosH0 >= 1) {
+                durationEl.textContent = "0h 00m (Notte polare)";
+                durationEl.className = "text-sky-400 font-bold";
+            } else {
+                const H0 = Math.acos(cosH0); // in radianti
+                const hoursDecimal = (2 * H0 / Math.PI) * 12;
+                const hrs = Math.floor(hoursDecimal);
+                const mins = Math.round((hoursDecimal - hrs) * 60);
+                durationEl.textContent = `${hrs}h ${mins.toString().padStart(2, '0')}m`;
+                durationEl.className = "text-emerald-300 font-bold";
+            }
+        }
+
+        // --- 5. ASSE DI ROTAZIONE FISSO (Verticale lungo Y) ---
+        const axisPoints = [new THREE.Vector3(0, -R - 1.6, 0), new THREE.Vector3(0, R + 1.6, 0)];
+        const axisGeo = new THREE.BufferGeometry().setFromPoints(axisPoints);
+        const axisLine = new THREE.Line(
+            axisGeo,
+            new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.22, gapSize: 0.14 })
+        );
+        axisLine.computeLineDistances();
+        scene.add(axisLine);
+
+        // Sfere ai Poli
+        const poleGeo = new THREE.SphereGeometry(0.11, 16, 16);
+        const poleMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+        const northPoleMesh = new THREE.Mesh(poleGeo, poleMat);
+        northPoleMesh.position.set(0, R, 0);
+        const southPoleMesh = new THREE.Mesh(poleGeo, poleMat);
+        southPoleMesh.position.set(0, -R, 0);
+        scene.add(northPoleMesh, southPoleMesh);
+
+        // --- 6. CIRCOLO DI ILLUMINAZIONE (Terminatore) ---
+        const terminatorGroup = new THREE.Group();
+        scene.add(terminatorGroup);
+
+        const termPoints = [];
+        for (let i = 0; i <= 128; i++) {
+            const a = (i / 128) * Math.PI * 2;
+            // Cerchio nel piano YZ (perpendicolare all'asse X quando declinazione = 0)
+            termPoints.push(new THREE.Vector3(0, (R + 0.045) * Math.cos(a), (R + 0.045) * Math.sin(a)));
+        }
+        const terminatorLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(termPoints),
+            new THREE.LineBasicMaterial({ color: 0xfef08a, linewidth: 2 })
+        );
+        terminatorGroup.add(terminatorLine);
+
+        // --- 7. RAGGI SOLARI PARALLELI E ANGOLO DI 90° AL PUNTO SUBSOLARE ---
+        const solarRaysGroup = new THREE.Group();
+        scene.add(solarRaysGroup);
+
+        // Funzione per creare una freccia 3D cilindrica + cono
+        function createSunRayArrow(length, color, radius = 0.03) {
+            const group = new THREE.Group();
+            const shaftLen = length - 0.35;
+            const shaft = new THREE.Mesh(
+                new THREE.CylinderGeometry(radius, radius, shaftLen, 12),
+                new THREE.MeshBasicMaterial({ color })
+            );
+            // Orientiamo lungo -X (proveniente da destra verso sinistra)
+            shaft.rotation.z = Math.PI / 2;
+            shaft.position.x = -shaftLen / 2;
+
+            const head = new THREE.Mesh(
+                new THREE.ConeGeometry(radius * 3.2, 0.35, 16),
+                new THREE.MeshBasicMaterial({ color })
+            );
+            head.rotation.z = Math.PI / 2;
+            head.position.x = -shaftLen - 0.175;
+
+            group.add(shaft, head);
+            return group;
+        }
+
+        // Fascio di raggi paralleli superiori e inferiori (nel piano XY)
+        const rayOffsetsY = [-3.4, -2.2, -1.1, 1.1, 2.2, 3.4];
+        rayOffsetsY.forEach(offsetY => {
+            // Calcolo punto di impatto sulla sfera di raggio R per il raggio orizzontale
+            const impactX = Math.sqrt(Math.max(0, R * R - offsetY * offsetY));
+            const startX = 9.2;
+            const rayLen = startX - impactX - 0.05;
+            const arrow = createSunRayArrow(rayLen, 0xfacc15, 0.024);
+            arrow.position.set(startX, offsetY, 0);
+            solarRaysGroup.add(arrow);
+        });
+
+        // Raggio Centrale (Subsolare) evidenziato in arancione acceso -> colpisce esattamente la superficie a (R, 0, 0) nel sistema ruotato!
+        const centralRayLen = 9.2 - R - 0.04;
+        const centralRay = createSunRayArrow(centralRayLen, 0xf97316, 0.052);
+        centralRay.position.set(9.2, 0, 0);
+        solarRaysGroup.add(centralRay);
+
+        // Prolungamento tratteggiato interno fino al centro della Terra O(0,0,0) per mostrare l'angolo di declinazione
+        const innerRayGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(R, 0, 0)
+        ]);
+        const innerRayLine = new THREE.Line(
+            innerRayGeo,
+            new THREE.LineDashedMaterial({ color: 0xf97316, dashSize: 0.18, gapSize: 0.12 })
+        );
+        innerRayLine.computeLineDistances();
+        solarRaysGroup.add(innerRayLine);
+
+        // Punto Subsolare (dove il raggio colpisce perpendicolarmente il suolo)
+        const subsolarPoint = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 20, 20),
+            new THREE.MeshBasicMaterial({ color: 0xea580c })
+        );
+        subsolarPoint.position.set(R, 0, 0);
+        solarRaysGroup.add(subsolarPoint);
+
+        // Piano tangente al suolo nel Punto Subsolare (per visualizzare la superficie locale)
+        const tangentPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.5, 1.5),
+            new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.25,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            })
+        );
+        tangentPlane.rotation.y = Math.PI / 2;
+        tangentPlane.position.set(R + 0.01, 0, 0);
+        solarRaysGroup.add(tangentPlane);
+
+        // Simbolo grafico dell'Angolo Retto (90°) tra il piano tangente (asse Y) e il raggio incidente (asse X)
+        const sqSize = 0.42;
+        const rightAnglePts = [
+            new THREE.Vector3(R, sqSize, 0),
+            new THREE.Vector3(R + sqSize, sqSize, 0),
+            new THREE.Vector3(R + sqSize, 0, 0)
+        ];
+        const rightAngleCorner = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(rightAnglePts),
+            new THREE.LineBasicMaterial({ color: 0xf97316, linewidth: 2 })
+        );
+        solarRaysGroup.add(rightAngleCorner);
+
+        // --- 8. ETICHETTE 3D DINAMICHE SU SCHERMO ---
+        const labelsLayer = document.getElementById('labels-layer');
+        const labelDefinitions = [
+            { id: 'lbl-pn', text: 'Polo Nord', getPos: () => new THREE.Vector3(0, R + 1.85, 0), color: '#f8fafc', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-ps', text: 'Polo Sud', getPos: () => new THREE.Vector3(0, -R - 1.85, 0), color: '#f8fafc', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-eq', text: 'Equatore (0°)', getPos: () => new THREE.Vector3(-R * 0.65, 0, R * 0.78), color: '#fef08a', bg: 'rgba(15,23,42,0.7)' },
+            { id: 'lbl-tc', text: 'Tropico del Cancro (+23,4°)', group: 'tropics', getPos: () => {
+                const phi = THREE.MathUtils.degToRad(OBLIQUITY);
+                return new THREE.Vector3(-R * Math.cos(phi) * 0.55, R * Math.sin(phi), R * Math.cos(phi) * 0.85);
+            }, color: '#fbbf24', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-tcap', text: 'Tropico del Capricorno (-23,4°)', group: 'tropics', getPos: () => {
+                const phi = THREE.MathUtils.degToRad(-OBLIQUITY);
+                return new THREE.Vector3(-R * Math.cos(phi) * 0.55, R * Math.sin(phi), R * Math.cos(phi) * 0.85);
+            }, color: '#fbbf24', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-cpa', text: 'Circolo Polare Artico (+66,6°)', group: 'polars', getPos: () => {
+                const phi = THREE.MathUtils.degToRad(90 - OBLIQUITY);
+                return new THREE.Vector3(-R * Math.cos(phi) * 0.4, R * Math.sin(phi), R * Math.cos(phi) * 0.95);
+            }, color: '#22d3ee', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-cpant', text: 'Circolo Polare Antartico (-66,6°)', group: 'polars', getPos: () => {
+                const phi = THREE.MathUtils.degToRad(-(90 - OBLIQUITY));
+                return new THREE.Vector3(-R * Math.cos(phi) * 0.4, R * Math.sin(phi), R * Math.cos(phi) * 0.95);
+            }, color: '#22d3ee', bg: 'rgba(15,23,42,0.75)' },
+            { id: 'lbl-90', text: '90° (Perpendicolare)', group: 'rays', getPos: () => {
+                const v = new THREE.Vector3(R + 0.65, 0.55, 0);
+                v.applyAxisAngle(new THREE.Vector3(0, 0, 1), currentDeclinationRad);
+                return v;
+            }, color: '#fdba74', bg: 'rgba(154,52,18,0.85)' },
+            { id: 'lbl-obs', text: 'Punto P', getPos: () => {
+                const worldPos = new THREE.Vector3();
+                obsPoint.getWorldPosition(worldPos);
+                worldPos.y += 0.35;
+                return worldPos;
+            }, color: '#fecdd3', bg: 'rgba(159,18,57,0.85)' }
+        ];
+
+        const labelElements = {};
+        labelDefinitions.forEach(def => {
+            const el = document.createElement('div');
+            el.className = 'label-3d';
+            el.textContent = def.text;
+            el.style.color = def.color;
+            el.style.backgroundColor = def.bg;
+            labelsLayer.appendChild(el);
+            labelElements[def.id] = el;
+        });
+
+        // --- 9. STATO E AGGIORNAMENTO ASTRONOMICO ---
+        let currentDeclinationDeg = 23.44;
+        let currentDeclinationRad = THREE.MathUtils.degToRad(currentDeclinationDeg);
+        let isRotating = true;
+        let isRevolving = false;
+        let orbitalAngle = Math.PI / 2; // Parte da +23,44° (Solstizio d'estate)
+
+        const declSlider = document.getElementById('declination-slider');
+        const declBadge = document.getElementById('declination-badge');
+        const seasonDesc = document.getElementById('season-desc');
+        const subsolarTitle = document.getElementById('subsolar-title');
+        const subsolarDetail = document.getElementById('subsolar-detail');
+
+        function setSolarDeclination(deg, customSeasonText = null) {
+            currentDeclinationDeg = deg;
+            currentDeclinationRad = THREE.MathUtils.degToRad(deg);
+
+            // Ruota l'intero gruppo dei raggi solari e il circolo di illuminazione attorno all'asse Z
+            solarRaysGroup.rotation.z = currentDeclinationRad;
+            terminatorGroup.rotation.z = currentDeclinationRad;
+
+            // Aggiorna direzione luce nello shader Dì/Notte
+            const sunDir = new THREE.Vector3(Math.cos(currentDeclinationRad), Math.sin(currentDeclinationRad), 0).normalize();
+            earthUniforms.sunDir.value.copy(sunDir);
+
+            // Aggiorna UI numerica e testi didattici
+            const sign = deg > 0.05 ? '+' : '';
+            declBadge.textContent = `${sign}${deg.toFixed(1).replace('.', ',')}°`;
+
+            if (customSeasonText) {
+                seasonDesc.textContent = customSeasonText;
+            } else {
+                if (deg > 22.5) seasonDesc.textContent = "Solstizio d'Estate (Emisfero Boreale)";
+                else if (deg < -22.5) seasonDesc.textContent = "Solstizio d'Inverno (Emisfero Boreale)";
+                else if (Math.abs(deg) < 0.8) seasonDesc.textContent = "Equinozio (Primavera / Autunno)";
+                else if (deg > 0) seasonDesc.textContent = "Semestre Estivo Boreale (Primavera/Estate)";
+                else seasonDesc.textContent = "Semestre Invernale Boreale (Autunno/Inverno)";
+            }
+
+            // Aggiorna riquadro esplicativo sulla perpendicolarità ai Tropici
+            if (deg > 22.8) {
+                subsolarTitle.textContent = "Raggi perpendicolari (90°) al Tropico del Cancro";
+                subsolarDetail.innerHTML = "Il raggio centrale forma un angolo retto (<strong>90°</strong>) col suolo a <strong>23,4° Nord</strong>. Il Circolo Polare Artico è tutto nel dì (24h di luce), l'Antartico è tutto nella notte.";
+            } else if (deg < -22.8) {
+                subsolarTitle.textContent = "Raggi perpendicolari (90°) al Tropico del Capricorno";
+                subsolarDetail.innerHTML = "Il raggio centrale forma un angolo retto (<strong>90°</strong>) col suolo a <strong>23,4° Sud</strong>. Il Circolo Polare Antartico è tutto nel dì, l'Artico è tutto nella notte (24h di buio).";
+            } else if (Math.abs(deg) < 0.6) {
+                subsolarTitle.textContent = "Raggi perpendicolari (90°) all'Equatore";
+                subsolarDetail.innerHTML = "Agli equinozi il raggio perpendicolare colpisce l'<strong>Equatore (0°)</strong>. Il Circolo di Illuminazione passa esattamente per i Poli: 12 ore di dì e 12 ore di notte ovunque.";
+            } else {
+                const hem = deg > 0 ? 'Nord' : 'Sud';
+                subsolarTitle.textContent = `Raggi perpendicolari (90°) a ${Math.abs(deg).toFixed(1).replace('.', ',')}° ${hem}`;
+                subsolarDetail.innerHTML = `Il punto subsolare si sposta tra i due Tropici durante l'anno. Solo nella fascia intertropicale il Sole può raggiungere lo zenit (90°).`;
+            }
+
+            updateDaylightDuration();
+        }
+
+        // --- 10. EVENTI INTERFACCIA UTENTE ---
+        declSlider.addEventListener('input', (e) => {
+            stopRevolution();
+            clearPresetActive();
+            const val = parseFloat(e.target.value);
+            // Sincronizza angolo orbitale per eventuale ripresa fluida
+            orbitalAngle = Math.asin(Math.max(-1, Math.min(1, val / OBLIQUITY)));
+            setSolarDeclination(val);
+        });
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        function clearPresetActive() {
+            presetBtns.forEach(b => {
+                b.classList.remove('bg-amber-500', 'text-slate-950', 'active');
+                b.classList.add('bg-slate-700/80', 'text-slate-200');
+            });
+        }
+
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                stopRevolution();
+                clearPresetActive();
+                btn.classList.remove('bg-slate-700/80', 'text-slate-200');
+                btn.classList.add('bg-amber-500', 'text-slate-950', 'active');
+
+                const deg = parseFloat(btn.dataset.deg);
+                const seasonText = btn.dataset.season;
+                declSlider.value = deg;
+                orbitalAngle = Math.asin(Math.max(-1, Math.min(1, deg / OBLIQUITY)));
+                setSolarDeclination(deg, seasonText);
+            });
+        });
+
+        // Pulsante Moto di Rivoluzione
+        const btnRevolution = document.getElementById('btn-revolution');
+        const revIcon = document.getElementById('rev-icon');
+        const revText = document.getElementById('rev-text');
+
+        function stopRevolution() {
+            isRevolving = false;
+            revIcon.textContent = '▶';
+            revText.textContent = 'Simula Moto di Rivoluzione';
+            btnRevolution.classList.remove('bg-amber-600', 'hover:bg-amber-500');
+            btnRevolution.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+        }
+
+        btnRevolution.addEventListener('click', () => {
+            isRevolving = !isRevolving;
+            if (isRevolving) {
+                clearPresetActive();
+                revIcon.textContent = '⏸';
+                revText.textContent = 'Ferma Rivoluzione';
+                btnRevolution.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+                btnRevolution.classList.add('bg-amber-600', 'hover:bg-amber-500');
+            } else {
+                stopRevolution();
+            }
+        });
+
+        // Pulsante Moto di Rotazione
+        const btnRotation = document.getElementById('btn-rotation');
+        const rotSpeedSlider = document.getElementById('rotation-speed');
+
+        btnRotation.addEventListener('click', () => {
+            isRotating = !isRotating;
+            if (isRotating) {
+                btnRotation.textContent = '⏸ In Rotazione';
+                btnRotation.classList.remove('bg-slate-700');
+                btnRotation.classList.add('bg-emerald-600');
+            } else {
+                btnRotation.textContent = '▶ Avvia Rotazione';
+                btnRotation.classList.remove('bg-emerald-600');
+                btnRotation.classList.add('bg-slate-700');
+            }
+        });
+
+        // Controlli Punto Rosso P lungo il meridiano
+        const obsLatSlider = document.getElementById('obs-lat-slider');
+        const btnObsMeridian = document.getElementById('btn-obs-meridian');
+        const obsAnimIcon = document.getElementById('obs-anim-icon');
+        const obsAnimText = document.getElementById('obs-anim-text');
+        let isObsMoving = false;
+        let obsMoveDir = 1;
+
+        function stopObsMovement() {
+            isObsMoving = false;
+            obsAnimIcon.textContent = '▶';
+            obsAnimText.textContent = 'Muovi Punto P sul Meridiano';
+            btnObsMeridian.classList.remove('bg-amber-600', 'hover:bg-amber-500');
+            btnObsMeridian.classList.add('bg-rose-600/90', 'hover:bg-rose-500');
+        }
+
+        obsLatSlider.addEventListener('input', (e) => {
+            stopObsMovement();
+            updateObserverPosition(parseFloat(e.target.value));
+        });
+
+        btnObsMeridian.addEventListener('click', () => {
+            isObsMoving = !isObsMoving;
+            if (isObsMoving) {
+                obsAnimIcon.textContent = '⏸';
+                obsAnimText.textContent = 'Ferma Punto P';
+                btnObsMeridian.classList.remove('bg-rose-600/90', 'hover:bg-rose-500');
+                btnObsMeridian.classList.add('bg-amber-600', 'hover:bg-amber-500');
+            } else {
+                stopObsMovement();
+            }
+        });
+
+        // Checkbox visibilità
+        document.getElementById('chk-tropics').addEventListener('change', (e) => {
+            tropicsGroup.visible = e.target.checked;
+        });
+        document.getElementById('chk-polars').addEventListener('change', (e) => {
+            polarsGroup.visible = e.target.checked;
+        });
+        document.getElementById('chk-terminator').addEventListener('change', (e) => {
+            terminatorGroup.visible = e.target.checked;
+        });
+        document.getElementById('chk-rays').addEventListener('change', (e) => {
+            solarRaysGroup.visible = e.target.checked;
+        });
+        document.getElementById('chk-labels').addEventListener('change', (e) => {
+            labelsLayer.style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        // Toggle pannello su schermi piccoli
+        const controlPanel = document.getElementById('control-panel');
+        const togglePanelBtn = document.getElementById('toggle-panel-btn');
+        const openPanelBtn = document.getElementById('open-panel-btn');
+
+        togglePanelBtn.addEventListener('click', () => {
+            controlPanel.classList.add('hidden');
+            openPanelBtn.classList.remove('hidden');
+        });
+        openPanelBtn.addEventListener('click', () => {
+            controlPanel.classList.remove('hidden');
+            openPanelBtn.classList.add('hidden');
+        });
+
+        // --- 11. PROIEZIONE ETICHETTE 3D -> 2D ---
+        const tempVec = new THREE.Vector3();
+        function updateScreenLabels() {
+            if (!document.getElementById('chk-labels').checked) return;
+
+            const showTropics = document.getElementById('chk-tropics').checked;
+            const showPolars = document.getElementById('chk-polars').checked;
+            const showRays = document.getElementById('chk-rays').checked;
+
+            labelDefinitions.forEach(def => {
+                const el = labelElements[def.id];
+                if ((def.group === 'tropics' && !showTropics) ||
+                    (def.group === 'polars' && !showPolars) ||
+                    (def.group === 'rays' && !showRays)) {
+                    el.style.opacity = '0';
+                    return;
+                }
+
+                tempVec.copy(def.getPos());
+                tempVec.project(camera);
+
+                // Nascondi se dietro la camera
+                if (tempVec.z > 1) {
+                    el.style.opacity = '0';
+                    return;
+                }
+
+                const x = (tempVec.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-tempVec.y * 0.5 + 0.5) * window.innerHeight;
+
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.style.opacity = '1';
+            });
+        }
+
+        // --- 12. LOOP PRINCIPALE DI ANIMAZIONE ---
+        setSolarDeclination(23.44, "Solstizio d'Estate (21 Giugno)");
+        updateObserverPosition(45);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Moto di rotazione terrestre attorno all'asse Y verticale
+            if (isRotating) {
+                const speed = parseFloat(rotSpeedSlider.value) * 0.015;
+                rotatingEarthGroup.rotation.y += speed;
+                earthMesh.rotation.y += speed;
+            }
+
+            // Moto di rivoluzione (variazione sinusoidale continua della declinazione solare)
+            if (isRevolving) {
+                orbitalAngle += 0.008;
+                const newDecl = OBLIQUITY * Math.sin(orbitalAngle);
+                declSlider.value = newDecl;
+                setSolarDeclination(newDecl);
+            }
+
+            // Movimento automatico del Punto Rosso P lungo il meridiano (da Polo Sud a Polo Nord e ritorno)
+            if (isObsMoving) {
+                let nextLat = currentObsLatDeg + 0.35 * obsMoveDir;
+                if (nextLat >= 90) { nextLat = 90; obsMoveDir = -1; }
+                if (nextLat <= -90) { nextLat = -90; obsMoveDir = 1; }
+                obsLatSlider.value = nextLat;
+                updateObserverPosition(nextLat);
+            }
+
+            controls.update();
+            updateScreenLabels();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function () {
+            animate();
+        };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
