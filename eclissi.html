@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eclissi di Sole e di Luna - Simulazione Interattiva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #060b19;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+        input[type="range"] {
+            accent-color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas Principale a Schermo Intero -->
+    <canvas id="eclipseCanvas"></canvas>
+
+    <!-- BARRA SUPERIORE COMPATTA -->
+    <header class="fixed top-2.5 left-2.5 right-2.5 z-20 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl px-3.5 py-2 shadow-2xl">
+        
+        <!-- Titolo Sintetico -->
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-lg">
+                🌘
+            </div>
+            <div>
+                <h1 class="text-sm sm:text-base font-extrabold text-amber-400 leading-none">Eclissi di Sole e di Luna</h1>
+                <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Trascina la <strong class="text-sky-300">Luna</strong> lungo la sua orbita per osservare i coni d'ombra</p>
+            </div>
+        </div>
+
+        <!-- Pulsanti Rapidi Configurazioni Astronomiche -->
+        <div class="flex flex-wrap items-center gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+            <button id="btn-solar-total" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-500/25 text-amber-200 border border-amber-400/40 hover:bg-amber-500/35 transition">
+                🌑 Eclissi di Sole
+            </button>
+            <button id="btn-solar-annular" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition">
+                💍 Eclissi Anulare (Apogeo)
+            </button>
+            <button id="btn-lunar-total" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition">
+                🌕 Eclissi di Luna
+            </button>
+            <button id="btn-no-eclipse" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition">
+                🌓 Quadratura (Nessuna eclissi)
+            </button>
+        </div>
+
+        <!-- Pulsante Animazione Continua -->
+        <div class="flex items-center gap-2">
+            <button id="btn-anim-orbit" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-md">
+                <span id="anim-icon">▶</span> <span id="anim-text">Orbita continua</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- PANNELLO ANGOLO INFERIORE SINISTRO: Controlli Geometrici & Legenda Coni + Crediti -->
+    <div class="fixed bottom-2.5 left-2.5 z-20 flex flex-col gap-2 max-w-[350px]">
+        <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-3 shadow-2xl space-y-2.5">
+            
+            <!-- Legenda Visiva Coni d'Ombra e Penombra -->
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-800 text-[11px]">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-4 h-3 rounded bg-slate-950 border border-slate-500 inline-block"></span>
+                    <span class="font-semibold text-slate-200">Cono d'ombra (Umbra)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-4 h-3 rounded bg-sky-300/25 border border-sky-300/50 inline-block"></span>
+                    <span class="font-semibold text-sky-200">Penombra</span>
+                </div>
+            </div>
+
+            <!-- Controllo Distanza Terra-Luna (Perigeo <-> Apogeo) -->
+            <div>
+                <div class="flex justify-between items-center text-[11px] mb-1">
+                    <span class="font-semibold text-slate-200">Distanza Terra–Luna:</span>
+                    <span id="dist-label" class="font-bold text-sky-300">Perigeo (Vicina)</span>
+                </div>
+                <input type="range" id="orbit-radius-slider" min="0.82" max="1.18" step="0.01" value="0.86" class="w-full cursor-pointer h-1.5">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>Perigeo (Ecl. Totale)</span>
+                    <span>Media</span>
+                    <span>Apogeo (Ecl. Anulare)</span>
+                </div>
+            </div>
+
+            <!-- Controllo Inclinazione Piano Orbitale (5°) -->
+            <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-1.5 cursor-pointer text-xs text-slate-200">
+                        <input type="checkbox" id="chk-tangents" checked class="w-3.5 h-3.5 rounded accent-amber-400 cursor-pointer">
+                        <span>Raggi tangenti</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-xs text-slate-200">
+                        <input type="checkbox" id="chk-labels" checked class="w-3.5 h-3.5 rounded accent-sky-400 cursor-pointer">
+                        <span>Etichette</span>
+                    </label>
+                </div>
+
+                <button id="btn-tilt-plane" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition" title="Simula l'inclinazione di 5° dell'orbita lunare fuori dai nodi">
+                    Piano inclinato 5°: OFF
+                </button>
+            </div>
+        </div>
+
+        <!-- Crediti Didattici -->
+        <div class="pointer-events-none bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-3 py-1 rounded-full text-[11px] text-slate-300 shadow-lg w-fit">
+            Progetto didattico di <strong class="text-slate-100">Sara Sadocco</strong> • Sviluppo interattivo con Gemini
+        </div>
+    </div>
+
+    <!-- PANNELLO ANGOLO INFERIORE DESTRO: Stato Fenomeno Astronomico & Slider Angolo -->
+    <div class="fixed bottom-2.5 right-2.5 z-20 max-w-[340px] bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-3 shadow-2xl text-slate-100">
+        <div class="flex items-center justify-between gap-2 mb-1">
+            <span id="phase-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                🌑 Novilunio
+            </span>
+            <span id="angle-badge" class="text-[10px] text-slate-400 font-mono">Angolo: 180°</span>
+        </div>
+
+        <div id="phenomenon-title" class="text-xs sm:text-sm font-extrabold text-amber-300 leading-snug">
+            Eclissi Totale di Sole
+        </div>
+        <p id="phenomenon-desc" class="text-[11px] text-slate-300 leading-snug mt-1 mb-2.5">
+            La Luna è tra Sole e Terra: il vertice del suo cono d'ombra tocca la superficie terrestre oscurando totalmente il disco solare in una fascia ristretta.
+        </p>
+
+        <!-- Slider fine posizione Luna -->
+        <div class="pt-2 border-t border-slate-800">
+            <div class="flex justify-between text-[10px] font-semibold text-sky-300 mb-0.5">
+                <span>Posizione Luna sull'orbita</span>
+                <span class="text-slate-400">Trascina sul disegno o usa lo slider</span>
+            </div>
+            <input type="range" id="moon-angle-slider" min="0" max="360" step="0.2" value="180" class="w-full cursor-pointer h-1.5">
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('eclipseCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        // Coordinate principali dei corpi celesti (Sole a sinistra, Terra al centro-destra come negli schemi 15A/15B)
+        let sunX = 0, sunY = 0, sunR = 46;
+        let earthX = 0, earthY = 0, earthR = 23;
+        let baseOrbitR = 135;
+        let orbitScale = 0.86; // 0.82 (Perigeo) -> 1.18 (Apogeo)
+        let moonR = 9;
+
+        // Angolo della Luna attorno alla Terra (PI = 180° = esattamente tra Sole e Terra; 0 = opposta al Sole)
+        let moonAngle = Math.PI;
+        let isAnimating = false;
+        let isDragging = false;
+        let isHovered = false;
+        let orbitalTiltActive = false; // Simula spostamento verticale dovuto all'inclinazione di 5° fuori dai nodi
+
+        // Stelle di sfondo
+        const stars = [];
+        for (let i = 0; i < 240; i++) {
+            stars.push({
+                nx: Math.random(),
+                ny: Math.random(),
+                r: Math.random() * 1.3 + 0.25,
+                alpha: Math.random() * 0.65 + 0.2
+            });
+        }
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const centerY = height * 0.48;
+            sunX = Math.max(85, width * 0.14);
+            sunY = centerY;
+
+            // Terra posizionata a circa il 66% della larghezza per lasciare spazio a destra al lungo cono d'ombra terrestre (schema 15B)
+            earthX = width * 0.65;
+            earthY = centerY;
+
+            const distSunEarth = earthX - sunX;
+            sunR = Math.max(32, Math.min(54, distSunEarth * 0.088));
+            earthR = Math.max(17, Math.min(26, sunR * 0.48));
+            moonR = Math.max(7.5, earthR * 0.38);
+            baseOrbitR = Math.max(85, Math.min(155, distSunEarth * 0.27));
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function getMoonPos() {
+            const currentOrbitR = baseOrbitR * orbitScale;
+            // Se il piano orbitale è inclinato di 5° (fuori dalla linea dei nodi), applichiamo uno scostamento verticale
+            const verticalOffset = orbitalTiltActive ? Math.sin(moonAngle - Math.PI / 2) * (earthR * 1.45) : 0;
+            return {
+                x: earthX + Math.cos(moonAngle) * currentOrbitR,
+                y: earthY - Math.sin(moonAngle) * currentOrbitR + verticalOffset,
+                orbitR: currentOrbitR
+            };
+        }
+
+        // --- CALCOLO GEOMETRICO ESATTO DEI CONI D'OMBRA (UMBRA) E PENOMBRA ---
+        // Dati due cerchi C1(x1,y1,r1) [Sole] e C2(x2,y2,r2) [Terra o Luna] con r1 > r2:
+        // - Le tangenti ESTERNE convergono in un punto V_umbra oltre C2 formando il cono d'ombra completo.
+        // - Le tangenti INTERNE si incrociano tra C1 e C2 in V_penumbra e divergono formando il cono di penombra.
+        function computeShadowGeometry(x1, y1, r1, x2, y2, r2, maxExtension = 2500) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const d = Math.hypot(dx, dy);
+            if (d <= r1 - r2) return null;
+
+            const ux = dx / d;
+            const uy = dy / d;
+            // Versore perpendicolare
+            const px = -uy;
+            const py = ux;
+
+            // 1. Tangenti ESTERNE (Cono d'Ombra / Umbra)
+            const sinAlpha = (r1 - r2) / d;
+            const cosAlpha = Math.sqrt(Math.max(0, 1 - sinAlpha * sinAlpha));
+
+            // Punti di tangenza su C1 e C2
+            const t1Top = { x: x1 + r1 * (ux * sinAlpha + px * cosAlpha), y: y1 + r1 * (uy * sinAlpha + py * cosAlpha) };
+            const t1Bot = { x: x1 + r1 * (ux * sinAlpha - px * cosAlpha), y: y1 + r1 * (uy * sinAlpha - py * cosAlpha) };
+
+            const t2Top = { x: x2 + r2 * (ux * sinAlpha + px * cosAlpha), y: y2 + r2 * (uy * sinAlpha + py * cosAlpha) };
+            const t2Bot = { x: x2 + r2 * (ux * sinAlpha - px * cosAlpha), y: y2 + r2 * (uy * sinAlpha - py * cosAlpha) };
+
+            // Vertice esatto del cono d'ombra (dove le due tangenti esterne si incontrano)
+            const umbraLenFromC2 = (r2 * d) / (r1 - r2);
+            const umbraApex = {
+                x: x2 + ux * umbraLenFromC2,
+                y: y2 + uy * umbraLenFromC2
+            };
+
+            // 2. Tangenti INTERNE (Cono di Penombra)
+            const sinBeta = (r1 + r2) / d;
+            const cosBeta = Math.sqrt(Math.max(0, 1 - sinBeta * sinBeta));
+
+            // Punto di tangenza superiore su C1 -> inferiore su C2 (e viceversa)
+            const p1Top = { x: x1 + r1 * (ux * sinBeta + px * cosBeta), y: y1 + r1 * (uy * sinBeta + py * cosBeta) };
+            const p2Bot = { x: x2 - r2 * (ux * sinBeta + px * cosBeta), y: y2 - r2 * (uy * sinBeta + py * cosBeta) };
+
+            const p1Bot = { x: x1 + r1 * (ux * sinBeta - px * cosBeta), y: y1 + r1 * (uy * sinBeta - py * cosBeta) };
+            const p2Top = { x: x2 - r2 * (ux * sinBeta - px * cosBeta), y: y2 - r2 * (uy * sinBeta - py * cosBeta) };
+
+            // Estensione dei raggi di penombra oltre C2
+            const dirPenTopX = p2Top.x - p1Bot.x;
+            const dirPenTopY = p2Top.y - p1Bot.y;
+            const lenPenTop = Math.hypot(dirPenTopX, dirPenTopY);
+            const penEndTop = {
+                x: p2Top.x + (dirPenTopX / lenPenTop) * maxExtension,
+                y: p2Top.y + (dirPenTopY / lenPenTop) * maxExtension
+            };
+
+            const dirPenBotX = p2Bot.x - p1Top.x;
+            const dirPenBotY = p2Bot.y - p1Top.y;
+            const lenPenBot = Math.hypot(dirPenBotX, dirPenBotY);
+            const penEndBot = {
+                x: p2Bot.x + (dirPenBotX / lenPenBot) * maxExtension,
+                y: p2Bot.y + (dirPenBotY / lenPenBot) * maxExtension
+            };
+
+            // Estensione antumbra (prolungamento oltre il vertice dell'ombra per l'eclissi anulare)
+            const dirUmbTopX = umbraApex.x - t2Top.x;
+            const dirUmbTopY = umbraApex.y - t2Top.y;
+            const lenUmbTop = Math.hypot(dirUmbTopX, dirUmbTopY) || 1;
+            const antumbraEndTop = {
+                x: umbraApex.x + (dirUmbTopX / lenUmbTop) * maxExtension,
+                y: umbraApex.y + (dirUmbTopY / lenUmbTop) * maxExtension
+            };
+
+            const dirUmbBotX = umbraApex.x - t2Bot.x;
+            const dirUmbBotY = umbraApex.y - t2Bot.y;
+            const lenUmbBot = Math.hypot(dirUmbBotX, dirUmbBotY) || 1;
+            const antumbraEndBot = {
+                x: umbraApex.x + (dirUmbBotX / lenUmbBot) * maxExtension,
+                y: umbraApex.y + (dirUmbBotY / lenUmbBot) * maxExtension
+            };
+
+            return {
+                ux, uy, d, umbraLenFromC2,
+                t1Top, t1Bot, t2Top, t2Bot, umbraApex,
+                p1Top, p1Bot, p2Top, p2Bot, penEndTop, penEndBot,
+                antumbraEndTop, antumbraEndBot
+            };
+        }
+
+        function drawBackground() {
+            const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+            bgGrad.addColorStop(0, '#091326');
+            bgGrad.addColorStop(0.5, '#0b1833');
+            bgGrad.addColorStop(1, '#050a17');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            stars.forEach(s => {
+                ctx.beginPath();
+                ctx.arc(s.nx * width, s.ny * height, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(226, 232, 240, ${s.alpha})`;
+                ctx.fill();
+            });
+        }
+
+        function drawOrbitPath(orbitR) {
+            ctx.save();
+            ctx.beginPath();
+            if (orbitalTiltActive) {
+                // Mostra l'ellisse prospettica inclinata di 5°
+                ctx.ellipse(earthX, earthY, orbitR, earthR * 1.45, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+            } else {
+                ctx.arc(earthX, earthY, orbitR, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
+            }
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+
+            // Linea congiungente Sole-Terra (Piano dell'Eclittica)
+            ctx.beginPath();
+            ctx.moveTo(sunX, sunY);
+            ctx.lineTo(width, earthY);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawShadowCones(geom, showTangents, isLunarBody = false) {
+            if (!geom) return;
+
+            ctx.save();
+
+            // 1. Cono di Penombra (fascia grigio-azzurra come negli schemi 15A e 15B)
+            ctx.beginPath();
+            ctx.moveTo(geom.p2Top.x, geom.p2Top.y);
+            ctx.lineTo(geom.penEndTop.x, geom.penEndTop.y);
+            ctx.lineTo(geom.penEndBot.x, geom.penEndBot.y);
+            ctx.lineTo(geom.p2Bot.x, geom.p2Bot.y);
+            ctx.closePath();
+            ctx.fillStyle = isLunarBody ? 'rgba(148, 185, 205, 0.36)' : 'rgba(148, 185, 205, 0.34)';
+            ctx.fill();
+
+            // 2. Antumbra (solo se il vertice dell'ombra della Luna cade prima della Terra -> Eclissi Anulare)
+            if (isLunarBody && geom.umbraLenFromC2 < (earthX - geom.t2Top.x)) {
+                ctx.beginPath();
+                ctx.moveTo(geom.umbraApex.x, geom.umbraApex.y);
+                ctx.lineTo(geom.antumbraEndTop.x, geom.antumbraEndTop.y);
+                ctx.lineTo(geom.antumbraEndBot.x, geom.antumbraEndBot.y);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+                ctx.fill();
+            }
+
+            // 3. Cono d'Ombra Totale (Umbra - triangolo scuro ad alto contrasto)
+            ctx.beginPath();
+            ctx.moveTo(geom.t2Top.x, geom.t2Top.y);
+            ctx.lineTo(geom.umbraApex.x, geom.umbraApex.y);
+            ctx.lineTo(geom.t2Bot.x, geom.t2Bot.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(12, 16, 26, 0.92)';
+            ctx.fill();
+
+            // Bordi del cono di penombra
+            ctx.beginPath();
+            ctx.moveTo(geom.p2Top.x, geom.p2Top.y);
+            ctx.lineTo(geom.penEndTop.x, geom.penEndTop.y);
+            ctx.moveTo(geom.p2Bot.x, geom.p2Bot.y);
+            ctx.lineTo(geom.penEndBot.x, geom.penEndBot.y);
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.42)';
+            ctx.lineWidth = 1.1;
+            ctx.stroke();
+
+            // Raggi tangenti dal Sole al corpo oscurante (come nelle figure 15A e 15B)
+            if (showTangents) {
+                ctx.beginPath();
+                // Tangenti esterne (che formano il cono d'ombra)
+                ctx.moveTo(geom.t1Top.x, geom.t1Top.y);
+                ctx.lineTo(geom.t2Top.x, geom.t2Top.y);
+                ctx.moveTo(geom.t1Bot.x, geom.t1Bot.y);
+                ctx.lineTo(geom.t2Bot.x, geom.t2Bot.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.58)';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
+                // Tangenti interne incrociate (che delimitano la penombra)
+                ctx.beginPath();
+                ctx.moveTo(geom.p1Top.x, geom.p1Top.y);
+                ctx.lineTo(geom.p2Bot.x, geom.p2Bot.y);
+                ctx.moveTo(geom.p1Bot.x, geom.p1Bot.y);
+                ctx.lineTo(geom.p2Top.x, geom.p2Top.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawSun(showLabels) {
+            ctx.save();
+            // Alone solare
+            const glow = ctx.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 2.2);
+            glow.addColorStop(0, 'rgba(253, 224, 71, 0.85)');
+            glow.addColorStop(0.45, 'rgba(249, 115, 22, 0.32)');
+            glow.addColorStop(1, 'rgba(249, 115, 22, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, sunR * 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Disco solare
+            const grad = ctx.createRadialGradient(sunX - sunR * 0.2, sunY - sunR * 0.2, 4, sunX, sunY, sunR);
+            grad.addColorStop(0, '#fef9c3');
+            grad.addColorStop(0.55, '#facc15');
+            grad.addColorStop(0.88, '#f97316');
+            grad.addColorStop(1, '#ea580c');
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            if (showLabels) {
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.fillStyle = '#fde047';
+                ctx.textAlign = 'center';
+                ctx.fillText('Sole', sunX, sunY + sunR + 20);
+            }
+            ctx.restore();
+        }
+
+        function drawEarth(moonPos, moonGeom, showLabels) {
+            ctx.save();
+            // Disco terrestre
+            const earthGrad = ctx.createLinearGradient(earthX - earthR, earthY, earthX + earthR, earthY);
+            earthGrad.addColorStop(0, '#fde68a');
+            earthGrad.addColorStop(0.48, '#60a5fa');
+            earthGrad.addColorStop(0.52, '#1e3a8a');
+            earthGrad.addColorStop(1, '#0f172a');
+
+            ctx.beginPath();
+            ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+            ctx.fillStyle = earthGrad;
+            ctx.fill();
+
+            // Se la Luna è tra Sole e Terra, disegniamo l'ombra proiettata sulla superficie terrestre!
+            if (moonPos.x < earthX && moonGeom) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Zona di Penombra sulla Terra
+                ctx.beginPath();
+                ctx.moveTo(moonGeom.p2Top.x, moonGeom.p2Top.y);
+                ctx.lineTo(moonGeom.penEndTop.x, moonGeom.penEndTop.y);
+                ctx.lineTo(moonGeom.penEndBot.x, moonGeom.penEndBot.y);
+                ctx.lineTo(moonGeom.p2Bot.x, moonGeom.p2Bot.y);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.48)';
+                ctx.fill();
+
+                // Zona di Ombra Totale (Umbra) sulla Terra
+                ctx.beginPath();
+                ctx.moveTo(moonGeom.t2Top.x, moonGeom.t2Top.y);
+                ctx.lineTo(moonGeom.umbraApex.x, moonGeom.umbraApex.y);
+                ctx.lineTo(moonGeom.t2Bot.x, moonGeom.t2Bot.y);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(2, 6, 23, 0.96)';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            ctx.beginPath();
+            ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.75)';
+            ctx.lineWidth = 1.6;
+            ctx.stroke();
+
+            if (showLabels) {
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.fillStyle = '#e2e8f0';
+                ctx.textAlign = 'center';
+                ctx.fillText('Terra', earthX, earthY + earthR + 20);
+            }
+            ctx.restore();
+        }
+
+        function drawMoon(moonPos, earthGeom, showLabels) {
+            const r = (isHovered || isDragging) ? moonR + 2 : moonR;
+            ctx.save();
+
+            // Calcolo dell'immersione della Luna nell'ombra o nella penombra terrestre (quando è oltre la Terra)
+            let inEarthUmbra = false;
+            let inEarthPenumbra = false;
+
+            if (moonPos.x > earthX && earthGeom) {
+                const distFromAxis = Math.abs(moonPos.y - earthY);
+                const dxFromEarth = moonPos.x - earthX;
+                // Raggio del cono d'ombra della Terra alla distanza dxFromEarth
+                const umbraRAtMoon = Math.max(0, earthR * (1 - dxFromEarth / earthGeom.umbraLenFromC2));
+                // Raggio approssimato della penombra della Terra alla distanza dxFromEarth
+                const penumbraRAtMoon = earthR + dxFromEarth * ((sunR + earthR) / earthGeom.d);
+
+                if (distFromAxis <= umbraRAtMoon + moonR * 0.3) {
+                    inEarthUmbra = true;
+                } else if (distFromAxis <= penumbraRAtMoon + moonR * 0.6) {
+                    inEarthPenumbra = true;
+                }
+            }
+
+            // Base della Luna (lato in ombra / notte)
+            ctx.beginPath();
+            ctx.arc(moonPos.x, moonPos.y, r, 0, Math.PI * 2);
+            if (inEarthUmbra) {
+                // "Luna Rossa" (Blood Moon) dovuta alla rifrazione atmosferica terrestre
+                ctx.fillStyle = '#991b1b';
+            } else if (inEarthPenumbra) {
+                ctx.fillStyle = '#475569';
+            } else {
+                ctx.fillStyle = '#1e293b';
+            }
+            ctx.fill();
+
+            // Emisfero illuminato dal Sole (sinistra, verso il Sole)
+            if (!inEarthUmbra) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(moonPos.x, moonPos.y, r, 0, Math.PI * 2);
+                ctx.clip();
+
+                ctx.beginPath();
+                ctx.arc(moonPos.x, moonPos.y, r, Math.PI / 2, -Math.PI / 2, false);
+                ctx.fillStyle = inEarthPenumbra ? '#94a3b8' : '#f8fafc';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Bordo Luna
+            ctx.beginPath();
+            ctx.arc(moonPos.x, moonPos.y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = inEarthUmbra ? '#f87171' : '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Anello di selezione interattivo
+            if (isHovered || isDragging) {
+                ctx.beginPath();
+                ctx.arc(moonPos.x, moonPos.y, r + 6, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            if (showLabels) {
+                ctx.font = 'bold 12px Inter, sans-serif';
+                ctx.fillStyle = inEarthUmbra ? '#fca5a5' : '#f8fafc';
+                ctx.textAlign = 'center';
+                const labelY = moonPos.y < earthY ? moonPos.y - r - 10 : moonPos.y + r + 18;
+                ctx.fillText('Luna', moonPos.x, labelY);
+            }
+
+            ctx.restore();
+            return { inEarthUmbra, inEarthPenumbra };
+        }
+
+        function updateStatusPanel(moonPos, moonGeom, earthGeom, lunarShadowState) {
+            const deg = Math.round(((moonAngle * 180) / Math.PI + 360) % 360);
+            document.getElementById('angle-badge').textContent = `Angolo: ${deg}°`;
+            document.getElementById('moon-angle-slider').value = deg;
+
+            const distLabel = document.getElementById('dist-label');
+            if (orbitScale <= 0.92) distLabel.textContent = 'Perigeo (Vicina)';
+            else if (orbitScale >= 1.08) distLabel.textContent = 'Apogeo (Lontana)';
+            else distLabel.textContent = 'Distanza Media';
+
+            const phaseBadge = document.getElementById('phase-badge');
+            const titleEl = document.getElementById('phenomenon-title');
+            const descEl = document.getElementById('phenomenon-desc');
+
+            // Determinazione Fase Lunare
+            if (deg > 155 && deg < 205) {
+                phaseBadge.textContent = '🌑 Novilunio';
+            } else if (deg < 25 || deg > 335) {
+                phaseBadge.textContent = '🌕 Plenilunio';
+            } else if (deg >= 205 && deg <= 335) {
+                phaseBadge.textContent = '🌓 Primo Quarto';
+            } else {
+                phaseBadge.textContent = '🌗 Ultimo Quarto';
+            }
+
+            // Controllo Eclissi di Sole (Luna tra Sole e Terra: x < earthX)
+            if (moonPos.x < earthX && moonGeom) {
+                const verticalMiss = Math.abs(moonPos.y - earthY);
+                const apexReachX = moonGeom.umbraApex.x;
+                const earthSurfaceX = earthX - earthR;
+
+                if (verticalMiss <= earthR + moonR * 0.4) {
+                    if (apexReachX >= earthSurfaceX && verticalMiss <= earthR * 0.75) {
+                        titleEl.textContent = 'Eclissi Totale di Sole';
+                        titleEl.className = 'text-xs sm:text-sm font-extrabold text-amber-300 leading-snug';
+                        descEl.textContent = 'Il vertice del cono d\'ombra della Luna raggiunge la superficie terrestre: nella piccola zona scura il Sole è completamente oscurato; attorno si ha eclissi parziale.';
+                    } else if (apexReachX < earthSurfaceX && verticalMiss <= earthR * 0.75) {
+                        titleEl.textContent = 'Eclissi Anulare di Sole (Luna all\'Apogeo)';
+                        titleEl.className = 'text-xs sm:text-sm font-extrabold text-orange-300 leading-snug';
+                        descEl.textContent = 'La Luna è più lontana dalla Terra: il vertice del suo cono d\'ombra termina prima di toccare il suolo, lasciando visibile un anello luminoso del Sole.';
+                    } else {
+                        titleEl.textContent = 'Eclissi Parziale di Sole';
+                        titleEl.className = 'text-xs sm:text-sm font-extrabold text-sky-300 leading-snug';
+                        descEl.textContent = 'Solo il cono di penombra della Luna interseca la Terra: il disco solare appare oscurato solo in parte.';
+                    }
+                    return;
+                }
+            }
+
+            // Controllo Eclissi di Luna (Luna dietro la Terra: x > earthX)
+            if (moonPos.x > earthX && earthGeom) {
+                if (lunarShadowState.inEarthUmbra) {
+                    titleEl.textContent = 'Eclissi Totale di Luna';
+                    titleEl.className = 'text-xs sm:text-sm font-extrabold text-rose-400 leading-snug';
+                    descEl.textContent = 'La Luna entra completamente nell\'ampio cono d\'ombra della Terra e assume una colorazione rossastra per i raggi rifratti dall\'atmosfera terrestre.';
+                    return;
+                } else if (lunarShadowState.inEarthPenumbra) {
+                    titleEl.textContent = 'Eclissi Penombrale / Parziale di Luna';
+                    titleEl.className = 'text-xs sm:text-sm font-extrabold text-sky-300 leading-snug';
+                    descEl.textContent = 'La Luna attraversa la zona di penombra terrestre subendo un lieve oscuramento prima di entrare nel cono d\'ombra principale.';
+                    return;
+                }
+            }
+
+            // Nessuna eclissi in corso
+            titleEl.textContent = 'Nessuna Eclissi in Corso';
+            titleEl.className = 'text-xs sm:text-sm font-extrabold text-slate-200 leading-snug';
+            descEl.textContent = orbitalTiltActive
+                ? 'Con l\'orbita inclinata di 5° fuori dalla linea dei nodi, l\'ombra della Luna o della Terra passa sopra o sotto l\'altro corpo celeste.'
+                : 'La Luna non è allineata con Sole e Terra: i coni d\'ombra si disperdono nello spazio senza colpire alcun corpo celeste.';
+        }
+
+        // --- INTERAZIONE DRAG & DROP MOUSE / TOUCH ---
+        function getPointerPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function updateMoonAngleFromPointer(px, py) {
+            const dx = px - earthX;
+            const dy = earthY - py;
+            let ang = Math.atan2(dy, dx);
+            if (ang < 0) ang += Math.PI * 2;
+            moonAngle = ang;
+        }
+
+        function handlePointerDown(e) {
+            const pt = getPointerPos(e);
+            const moonPos = getMoonPos();
+            if (Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y) <= moonR + 24) {
+                isDragging = true;
+                stopOrbitAnim();
+                clearPresetHighlight();
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function handlePointerMove(e) {
+            const pt = getPointerPos(e);
+            if (isDragging) {
+                e.preventDefault();
+                updateMoonAngleFromPointer(pt.x, pt.y);
+                return;
+            }
+            const moonPos = getMoonPos();
+            if (Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y) <= moonR + 20) {
+                isHovered = true;
+                canvas.style.cursor = 'grab';
+            } else {
+                isHovered = false;
+                canvas.style.cursor = 'default';
+            }
+        }
+
+        function handlePointerUp() {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = isHovered ? 'grab' : 'default';
+            }
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+        canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+        window.addEventListener('touchmove', handlePointerMove, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // --- CONTROLLI INTERFACCIA UTENTE ---
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        function clearPresetHighlight() {
+            presetButtons.forEach(b => {
+                b.classList.remove('bg-amber-500/25', 'text-amber-200', 'border', 'border-amber-400/40');
+                b.classList.add('text-slate-300');
+            });
+        }
+
+        function highlightPreset(btn) {
+            clearPresetHighlight();
+            if (btn) {
+                btn.classList.remove('text-slate-300');
+                btn.classList.add('bg-amber-500/25', 'text-amber-200', 'border', 'border-amber-400/40');
+            }
+        }
+
+        function disableTiltIfNeeded() {
+            if (orbitalTiltActive) {
+                orbitalTiltActive = false;
+                const btnTilt = document.getElementById('btn-tilt-plane');
+                btnTilt.textContent = 'Piano inclinato 5°: OFF';
+                btnTilt.classList.remove('bg-cyan-600', 'text-white');
+                btnTilt.classList.add('bg-slate-800', 'text-cyan-300');
+            }
+        }
+
+        document.getElementById('btn-solar-total').addEventListener('click', (e) => {
+            stopOrbitAnim();
+            disableTiltIfNeeded();
+            highlightPreset(e.currentTarget);
+            moonAngle = Math.PI;
+            orbitScale = 0.85;
+            document.getElementById('orbit-radius-slider').value = orbitScale;
+        });
+
+        document.getElementById('btn-solar-annular').addEventListener('click', (e) => {
+            stopOrbitAnim();
+            disableTiltIfNeeded();
+            highlightPreset(e.currentTarget);
+            moonAngle = Math.PI;
+            orbitScale = 1.15;
+            document.getElementById('orbit-radius-slider').value = orbitScale;
+        });
+
+        document.getElementById('btn-lunar-total').addEventListener('click', (e) => {
+            stopOrbitAnim();
+            disableTiltIfNeeded();
+            highlightPreset(e.currentTarget);
+            moonAngle = 0;
+            orbitScale = 0.95;
+            document.getElementById('orbit-radius-slider').value = orbitScale;
+        });
+
+        document.getElementById('btn-no-eclipse').addEventListener('click', (e) => {
+            stopOrbitAnim();
+            highlightPreset(e.currentTarget);
+            moonAngle = Math.PI / 2;
+        });
+
+        document.getElementById('orbit-radius-slider').addEventListener('input', (e) => {
+            orbitScale = parseFloat(e.target.value);
+        });
+
+        document.getElementById('moon-angle-slider').addEventListener('input', (e) => {
+            stopOrbitAnim();
+            clearPresetHighlight();
+            moonAngle = (parseFloat(e.target.value) * Math.PI) / 180;
+        });
+
+        const btnTiltPlane = document.getElementById('btn-tilt-plane');
+        btnTiltPlane.addEventListener('click', () => {
+            orbitalTiltActive = !orbitalTiltActive;
+            if (orbitalTiltActive) {
+                btnTiltPlane.textContent = 'Piano inclinato 5°: ON';
+                btnTiltPlane.classList.remove('bg-slate-800', 'text-cyan-300');
+                btnTiltPlane.classList.add('bg-cyan-600', 'text-white');
+            } else {
+                btnTiltPlane.textContent = 'Piano inclinato 5°: OFF';
+                btnTiltPlane.classList.remove('bg-cyan-600', 'text-white');
+                btnTiltPlane.classList.add('bg-slate-800', 'text-cyan-300');
+            }
+        });
+
+        const btnAnimOrbit = document.getElementById('btn-anim-orbit');
+        const animIcon = document.getElementById('anim-icon');
+        const animText = document.getElementById('anim-text');
+
+        function stopOrbitAnim() {
+            isAnimating = false;
+            animIcon.textContent = '▶';
+            animText.textContent = 'Orbita continua';
+            btnAnimOrbit.classList.remove('bg-amber-600', 'hover:bg-amber-500');
+            btnAnimOrbit.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+        }
+
+        btnAnimOrbit.addEventListener('click', () => {
+            isAnimating = !isAnimating;
+            if (isAnimating) {
+                clearPresetHighlight();
+                animIcon.textContent = '⏸';
+                animText.textContent = 'Pausa orbita';
+                btnAnimOrbit.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+                btnAnimOrbit.classList.add('bg-amber-600', 'hover:bg-amber-500');
+            } else {
+                stopOrbitAnim();
+            }
+        });
+
+        // --- LOOP DI RENDERING PRINCIPALE ---
+        function render() {
+            requestAnimationFrame(render);
+
+            if (isAnimating) {
+                moonAngle = (moonAngle + 0.01) % (Math.PI * 2);
+            }
+
+            const showTangents = document.getElementById('chk-tangents').checked;
+            const showLabels = document.getElementById('chk-labels').checked;
+
+            drawBackground();
+
+            const moonPos = getMoonPos();
+            drawOrbitPath(moonPos.orbitR);
+
+            // Calcolo geometria coni d'ombra per Terra e Luna
+            const earthShadowGeom = computeShadowGeometry(sunX, sunY, sunR, earthX, earthY, earthR, width);
+            const moonShadowGeom = computeShadowGeometry(sunX, sunY, sunR, moonPos.x, moonPos.y, moonR, width);
+
+            // Disegno sempre il cono d'ombra della Terra e contemporaneamente quello della Luna
+            drawShadowCones(earthShadowGeom, showTangents, false);
+            drawShadowCones(moonShadowGeom, showTangents, true);
+
+            drawSun(showLabels);
+            drawEarth(moonPos, moonShadowGeom, showLabels);
+            const lunarShadowState = drawMoon(moonPos, earthShadowGeom, showLabels);
+
+            updateStatusPanel(moonPos, moonShadowGeom, earthShadowGeom, lunarShadowState);
+        }
+
+        window.onload = function () {
+            render();
+        };
+    </script>
+</body>
+</html>
