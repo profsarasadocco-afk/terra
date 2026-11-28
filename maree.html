@@ -7,11 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body {
+        html, body {
             font-family: 'Inter', sans-serif;
             margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
-            background-color: #060b19;
+            background-color: #0b1120;
             color: #f8fafc;
             user-select: none;
             -webkit-user-select: none;
@@ -20,216 +23,195 @@
             display: block;
             width: 100vw;
             height: 100vh;
-            touch-action: none; /* Previene lo scroll durante il trascinamento su touch/LIM */
+            touch-action: none;
         }
         input[type="range"] {
             accent-color: #38bdf8;
-        }
-        /* Scrollbar discreta per pannello laterale su schermi piccoli */
-        ::-webkit-scrollbar {
-            width: 5px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.4);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.4);
-            border-radius: 9999px;
         }
     </style>
 </head>
 <body>
 
-    <!-- Canvas Principale -->
+    <!-- Canvas Principale a Schermo Intero -->
     <canvas id="tideCanvas"></canvas>
 
-    <!-- Badge Crediti Didattici in basso a sinistra -->
-    <div class="fixed bottom-3 left-3 z-10 pointer-events-none bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-3 py-1.5 rounded-full text-[11px] text-slate-300 shadow-lg">
-        Progetto didattico di <strong class="text-slate-100">Sara Sadocco</strong> • Sviluppo interattivo con Gemini
-    </div>
-
-    <!-- Pannello di Controllo Sinistro -->
-    <aside id="control-panel" class="fixed top-3 left-3 z-20 w-80 sm:w-84 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-3.5rem)] overflow-y-auto bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-4 shadow-2xl text-slate-100">
-        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/70">
-            <div>
-                <h1 class="text-base font-bold text-sky-400 leading-tight">Le Maree: Sole e Luna</h1>
-                <p class="text-[11px] text-slate-400">Trascina gli astri o usa i controlli</p>
+    <!-- BARRA SUPERIORE COMPATTA (Nessuno scroll necessario) -->
+    <header class="fixed top-2.5 left-2.5 right-2.5 z-20 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl px-3.5 py-2 shadow-2xl">
+        
+        <!-- Titolo Sintetico -->
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg">
+                🌊
             </div>
-            <button id="toggle-panel-btn" class="sm:hidden px-2 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs">
-                Chiudi
+            <div>
+                <h1 class="text-sm sm:text-base font-extrabold text-sky-400 leading-none">Le Maree: Sole e Luna</h1>
+                <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Trascina <strong class="text-fuchsia-300">Luna</strong> e <strong class="text-amber-300">Sole</strong> sulle orbite</p>
+            </div>
+        </div>
+
+        <!-- Pulsanti Rapidi Fasi Lunari -->
+        <div class="flex items-center gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+            <button id="btn-new-moon" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-sky-500/25 text-sky-200 border border-sky-400/40 hover:bg-sky-500/35 transition" title="Marea Sigiziale / Viva">
+                🌑 Novilunio
+            </button>
+            <button id="btn-first-quarter" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition" title="Marea di Quadratura / Morta">
+                🌓 1° Quarto
+            </button>
+            <button id="btn-full-moon" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition" title="Marea Sigiziale / Viva">
+                🌕 Plenilunio
+            </button>
+            <button id="btn-last-quarter" class="preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:bg-slate-800 transition" title="Marea di Quadratura / Morta">
+                🌗 Ult. Quarto
             </button>
         </div>
 
-        <!-- Stato Attuale della Marea & Fase Lunare -->
-        <div class="mb-3.5 bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
-            <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Configurazione</span>
-                <span id="phase-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    🌑 Novilunio
-                </span>
-            </div>
-            <div id="tide-type-title" class="text-sm font-bold text-amber-300 mb-1">
-                Marea Sigiziale (Marea Viva)
-            </div>
-            <p id="tide-type-desc" class="text-[11px] text-slate-300 leading-relaxed">
-                Sole, Terra e Luna sono allineati: gli effetti mareali si sommano producendo alte maree massime e basse maree minime.
-            </p>
+        <!-- Controlli Animazione (Mese Lunare + Rotazione Terra) -->
+        <div class="flex items-center gap-2">
+            <button id="btn-anim-lunar" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-md">
+                <span id="anim-lunar-icon">▶</span> <span id="anim-lunar-text">Orbita Luna</span>
+            </button>
+            <button id="btn-anim-earth" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-md">
+                <span id="anim-earth-icon">⏸</span> <span id="anim-earth-text">Rotazione Terra</span>
+            </button>
         </div>
+    </header>
 
-        <!-- Pulsanti Rapidi di Configurazione -->
-        <div class="mb-3.5">
-            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Posizioni Rapide</span>
-            <div class="grid grid-cols-2 gap-1.5">
-                <button id="btn-new-moon" class="preset-btn px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 hover:bg-sky-500/30 transition text-left">
-                    🌑 Novilunio<br><span class="text-[10px] text-slate-400 font-normal">Marea sigiziale</span>
-                </button>
-                <button id="btn-full-moon" class="preset-btn px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition text-left">
-                    🌕 Plenilunio<br><span class="text-[10px] text-slate-400 font-normal">Marea sigiziale</span>
-                </button>
-                <button id="btn-first-quarter" class="preset-btn px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition text-left">
-                    🌓 Primo Quarto<br><span class="text-[10px] text-slate-400 font-normal">Marea di quadratura</span>
-                </button>
-                <button id="btn-last-quarter" class="preset-btn px-2.5 py-2 rounded-xl text-[11px] font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition text-left">
-                    🌗 Ultimo Quarto<br><span class="text-[10px] text-slate-400 font-normal">Marea di quadratura</span>
-                </button>
+    <!-- PANNELLO ANGOLO INFERIORE SINISTRO: Interruttori Gravitazionali + Legenda Colori Netta + Crediti -->
+    <div class="fixed bottom-2.5 left-2.5 z-20 flex flex-col gap-2 max-w-[340px]">
+        <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-3 shadow-2xl space-y-2.5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Forze Gravitazionali</span>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">Luna ≈ 2,2× Sole</span>
             </div>
-        </div>
 
-        <!-- Controlli Angolari Manuali -->
-        <div class="mb-3.5 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2.5">
-            <div>
-                <div class="flex justify-between text-xs mb-1">
-                    <span class="font-semibold text-slate-200 flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block"></span> Posizione Luna
-                    </span>
-                    <span id="moon-deg-label" class="font-mono text-slate-300">0°</span>
+            <!-- Toggle Influenza Luna -->
+            <div class="flex items-center justify-between gap-2 bg-slate-800/70 px-2.5 py-2 rounded-xl border border-fuchsia-500/30">
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-1.5 rounded-full bg-fuchsia-500 inline-block shadow-[0_0_8px_#d946ef]"></span>
+                    <div>
+                        <div class="text-xs font-bold text-fuchsia-300 leading-tight">Influenza Luna (69%)</div>
+                        <div class="text-[10px] text-slate-400">Profilo linea continua magenta</div>
+                    </div>
                 </div>
-                <input type="range" id="moon-slider" min="0" max="360" value="0" class="w-full cursor-pointer">
-            </div>
-
-            <div>
-                <div class="flex justify-between text-xs mb-1">
-                    <span class="font-semibold text-amber-300 flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Posizione Sole
-                    </span>
-                    <span id="sun-deg-label" class="font-mono text-amber-300">0°</span>
-                </div>
-                <input type="range" id="sun-slider" min="0" max="360" value="0" class="w-full cursor-pointer" style="accent-color: #fbbf24;">
-            </div>
-        </div>
-
-        <!-- Confronto Fisico: Forza Mareale Luna vs Sole -->
-        <div class="mb-3.5 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-            <div class="flex justify-between items-center mb-1.5">
-                <span class="text-xs font-semibold text-slate-200">Contributo Mareale Relativo</span>
-                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">Luna ≈ 2,2× Sole</span>
-            </div>
-            
-            <!-- Barra Luna -->
-            <div class="mb-2">
-                <div class="flex justify-between text-[11px] mb-0.5">
-                    <span class="text-slate-300">Attrazione differenziale Luna</span>
-                    <span class="font-bold text-sky-300">69% (1,00)</span>
-                </div>
-                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-sky-400 rounded-full" style="width: 100%;"></div>
-                </div>
-            </div>
-
-            <!-- Barra Sole -->
-            <div>
-                <div class="flex justify-between text-[11px] mb-0.5">
-                    <span class="text-amber-200">Attrazione differenziale Sole</span>
-                    <span class="font-bold text-amber-300">31% (0,46)</span>
-                </div>
-                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-amber-400 rounded-full" style="width: 46%;"></div>
-                </div>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-2 leading-snug">
-                Anche se il Sole è molto più massiccio, la Luna è ~390 volte più vicina: poiché la forza mareale varia con <span class="font-mono text-slate-300">1/d³</span>, prevale la Luna.
-            </p>
-        </div>
-
-        <!-- Animazione e Opzioni Visive -->
-        <div class="space-y-2">
-            <div class="grid grid-cols-2 gap-1.5">
-                <button id="btn-anim-lunar" class="py-2 px-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1">
-                    <span id="anim-lunar-icon">▶</span> <span id="anim-lunar-text">Mese Lunare</span>
-                </button>
-                <button id="btn-anim-earth" class="py-2 px-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-1">
-                    <span id="anim-earth-icon">⏸</span> <span id="anim-earth-text">Rotazione Terra</span>
-                </button>
-            </div>
-
-            <div class="pt-1 space-y-1.5">
-                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-                    <input type="checkbox" id="chk-components" checked class="w-4 h-4 rounded accent-sky-400 cursor-pointer">
-                    <span>Mostra profili separati (Luna e Sole)</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-moon-gravity" checked class="sr-only peer">
+                    <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500"></div>
                 </label>
-                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-                    <input type="checkbox" id="chk-vectors" checked class="w-4 h-4 rounded accent-sky-400 cursor-pointer">
-                    <span>Mostra frecce di trazione e forza centrifuga</span>
+            </div>
+
+            <!-- Toggle Influenza Sole -->
+            <div class="flex items-center justify-between gap-2 bg-slate-800/70 px-2.5 py-2 rounded-xl border border-amber-500/30">
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-1.5 border-t-2 border-dashed border-amber-400 inline-block"></span>
+                    <div>
+                        <div class="text-xs font-bold text-amber-300 leading-tight">Influenza Sole (31%)</div>
+                        <div class="text-[10px] text-slate-400">Profilo tratteggiato arancio/oro</div>
+                    </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-sun-gravity" checked class="sr-only peer">
+                    <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
-                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-                    <input type="checkbox" id="chk-observer" checked class="w-4 h-4 rounded accent-rose-400 cursor-pointer">
-                    <span>Mostra osservatore sulla costa (Alta/Bassa marea)</span>
+            </div>
+
+            <!-- Opzioni Visive Compatte -->
+            <div class="flex items-center justify-between pt-0.5 text-[11px] text-slate-300">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" id="chk-components" checked class="w-3.5 h-3.5 rounded accent-sky-400 cursor-pointer">
+                    <span>Profili separati</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" id="chk-observer" checked class="w-3.5 h-3.5 rounded accent-rose-400 cursor-pointer">
+                    <span>Porto sulla costa</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" id="chk-vectors" checked class="w-3.5 h-3.5 rounded accent-sky-400 cursor-pointer">
+                    <span>Frecce</span>
                 </label>
             </div>
         </div>
-    </aside>
 
-    <!-- Pulsante riapertura pannello su schermi stretti -->
-    <button id="open-panel-btn" class="hidden fixed top-3 left-3 z-20 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-xs font-semibold text-sky-400 shadow-lg">
-        ☰ Controlli
-    </button>
-
-    <!-- Legenda / Suggerimento Interazione in basso a destra -->
-    <div class="fixed bottom-3 right-3 z-10 max-w-xs bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl px-3.5 py-2 text-[11px] text-slate-300 shadow-lg pointer-events-none hidden sm:block">
-        <div class="flex items-center gap-2 font-semibold text-sky-300 mb-0.5">
-            <span>👆 Interazione diretta</span>
+        <!-- Crediti Didattici -->
+        <div class="pointer-events-none bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-3 py-1 rounded-full text-[11px] text-slate-300 shadow-lg w-fit">
+            Progetto didattico di <strong class="text-slate-100">Sara Sadocco</strong> • Sviluppo interattivo con Gemini
         </div>
-        Trascina con il mouse o il dito il <strong class="text-amber-300">Sole</strong> o la <strong class="text-slate-100">Luna</strong> lungo le loro orbite per deformare gli oceani.
+    </div>
+
+    <!-- PANNELLO ANGOLO INFERIORE DESTRO: Stato Marea Sintetico + Slider Angolari Rapidi -->
+    <div class="fixed bottom-2.5 right-2.5 z-20 max-w-[320px] bg-slate-900/90 backdrop-blur-md border border-slate-700/70 rounded-2xl p-3 shadow-2xl text-slate-100">
+        <div class="flex items-center justify-between gap-2 mb-1">
+            <span id="phase-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                🌑 Novilunio
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">
+                L:<span id="moon-deg-label">0°</span> S:<span id="sun-deg-label">0°</span>
+            </span>
+        </div>
+
+        <div id="tide-type-title" class="text-xs sm:text-sm font-extrabold text-amber-300 leading-snug">
+            Marea Viva / Sigiziale - Ampiezza Massima
+        </div>
+        <p id="tide-type-desc" class="text-[11px] text-slate-300 leading-snug mt-1 mb-2.5">
+            Sole, Terra e Luna sono allineati: gli effetti mareali si sommano producendo alte maree massime.
+        </p>
+
+        <!-- Slider compatti affiancati -->
+        <div class="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-800">
+            <div>
+                <div class="flex justify-between text-[10px] font-semibold text-fuchsia-300 mb-0.5">
+                    <span>Angolo Luna</span>
+                </div>
+                <input type="range" id="moon-slider" min="0" max="360" value="0" class="w-full cursor-pointer h-1.5" style="accent-color: #d946ef;">
+            </div>
+            <div>
+                <div class="flex justify-between text-[10px] font-semibold text-amber-300 mb-0.5">
+                    <span>Angolo Sole</span>
+                </div>
+                <input type="range" id="sun-slider" min="0" max="360" value="0" class="w-full cursor-pointer h-1.5" style="accent-color: #f59e0b;">
+            </div>
+        </div>
     </div>
 
     <script>
         const canvas = document.getElementById('tideCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Stato della simulazione
         let width = window.innerWidth;
         let height = window.innerHeight;
         let centerX = width / 2;
         let centerY = height / 2;
 
-        // Angoli in radianti (0 = destra, senso antiorario positivo in matematica, ma sullo schermo Y va verso il basso)
-        // Usiamo angoli standard: 0° = destra, 90° = alto, 180° = sinistra, 270° = basso
-        let moonAngle = 0; // radianti
-        let sunAngle = 0;  // radianti
-        let earthRotation = 0; // rotazione della Terra sul proprio asse
+        // Angoli in radianti (0 = destra, PI/2 = alto, PI = sinistra, 3PI/2 = basso)
+        let moonAngle = 0;
+        let sunAngle = 0;
+        let earthRotation = 0;
+
+        // Stato forze gravitazionali attivabili/disattivabili
+        let isMoonGravityActive = true;
+        let isSunGravityActive = true;
 
         let isLunarAnimating = false;
         let isEarthRotating = true;
         let draggingBody = null; // 'moon' | 'sun' | null
         let hoveredBody = null;  // 'moon' | 'sun' | null
 
-        // Parametri geometrici dinamici (si adattano allo schermo)
-        let earthRadius = 56;
-        let baseOceanRadius = 74;
-        let moonOrbitRadius = 175;
-        let sunOrbitRadius = 290;
+        // Parametri geometrici dinamici adattati alla schermata 100vh
+        let earthRadius = 52;
+        let baseOceanRadius = 70;
+        let moonOrbitRadius = 165;
+        let sunOrbitRadius = 270;
 
-        // Ampiezze mareali visive (rapporto fisico realistico: Luna ~ 2.17 volte Sole)
-        const MOON_TIDE_AMP = 21;
-        const SUN_TIDE_AMP = 9.6; // 21 / 9.6 ≈ 2.19
+        // Ampiezze mareali visive (Luna ≈ 2,2× Sole)
+        const MOON_TIDE_AMP = 22;
+        const SUN_TIDE_AMP = 10;
 
-        // Stelle di sfondo generate una sola volta
+        // Stelle di sfondo
         const stars = [];
-        for (let i = 0; i < 180; i++) {
+        for (let i = 0; i < 190; i++) {
             stars.push({
                 nx: Math.random(),
                 ny: Math.random(),
-                r: Math.random() * 1.4 + 0.4,
+                r: Math.random() * 1.4 + 0.3,
                 alpha: Math.random() * 0.6 + 0.2
             });
         }
@@ -242,23 +224,23 @@
             canvas.height = height * dpr;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // Spostiamo leggermente il centro a destra su schermi desktop per lasciare spazio al pannello sinistro
-            const panelOffset = width > 768 ? 130 : 0;
-            centerX = width / 2 + panelOffset;
-            centerY = height / 2;
+            // Centro perfettamente centrato nello spazio disponibile tra barra superiore e pannelli inferiori
+            centerX = width / 2;
+            centerY = height / 2 + 12;
 
-            const minDim = Math.min(width - panelOffset * 1.2, height);
-            earthRadius = Math.max(36, Math.min(62, minDim * 0.085));
-            baseOceanRadius = earthRadius * 1.32;
-            moonOrbitRadius = Math.max(earthRadius * 2.4, minDim * 0.26);
-            sunOrbitRadius = Math.max(earthRadius * 3.7, minDim * 0.42);
+            const usableHeight = height - 150;
+            const usableWidth = width - 80;
+            const minDim = Math.min(usableWidth, usableHeight);
+
+            earthRadius = Math.max(36, Math.min(58, minDim * 0.095));
+            baseOceanRadius = earthRadius * 1.34;
+            moonOrbitRadius = Math.max(earthRadius * 2.45, minDim * 0.28);
+            sunOrbitRadius = Math.max(earthRadius * 3.75, minDim * 0.44);
         }
 
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // --- CONVERSIONE COORDINATE POLARI <-> SCHERMO ---
-        // Convenzione: angle = 0 -> destra (+X), angle = PI/2 -> alto (-Y)
         function getBodyCoords(angle, radius) {
             return {
                 x: centerX + Math.cos(angle) * radius,
@@ -268,33 +250,27 @@
 
         function getAngleFromPointer(px, py) {
             const dx = px - centerX;
-            const dy = centerY - py; // invertito perché Y schermo scende
+            const dy = centerY - py;
             let ang = Math.atan2(dy, dx);
             if (ang < 0) ang += Math.PI * 2;
             return ang;
         }
 
-        // --- CALCOLO DEL RAGGIO DELL'OCEANO IN DIREZIONE THETA ---
-        // L'effetto mareale è un'armonica sferica di secondo grado: cos(2 * (theta - angle))
-        // Questo crea due rigonfiamenti simmetrici (a 0° e a 180° rispetto all'astro)
-        // e due depressioni (a 90° e 270°).
+        // Calcolo del raggio risultante dell'involucro oceanico in direzione theta
         function getOceanRadiusAt(theta) {
-            const moonEffect = MOON_TIDE_AMP * Math.cos(2 * (theta - moonAngle));
-            const sunEffect = SUN_TIDE_AMP * Math.cos(2 * (theta - sunAngle));
+            const moonEffect = isMoonGravityActive ? MOON_TIDE_AMP * Math.cos(2 * (theta - moonAngle)) : 0;
+            const sunEffect = isSunGravityActive ? SUN_TIDE_AMP * Math.cos(2 * (theta - sunAngle)) : 0;
             return baseOceanRadius + moonEffect + sunEffect;
         }
 
-        // --- DISEGNO ELEMENTI SCENA ---
         function drawBackground() {
-            // Gradiente spazio profondo
-            const bgGrad = ctx.createRadialGradient(centerX, centerY, earthRadius, centerX, centerY, Math.max(width, height) * 0.8);
-            bgGrad.addColorStop(0, '#0f1c38');
-            bgGrad.addColorStop(0.5, '#080e21');
-            bgGrad.addColorStop(1, '#040711');
+            const bgGrad = ctx.createRadialGradient(centerX, centerY, earthRadius, centerX, centerY, Math.max(width, height) * 0.85);
+            bgGrad.addColorStop(0, '#101d3a');
+            bgGrad.addColorStop(0.55, '#0b1120');
+            bgGrad.addColorStop(1, '#050811');
             ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, width, height);
 
-            // Stelle
             stars.forEach(s => {
                 ctx.beginPath();
                 ctx.arc(s.nx * width, s.ny * height, s.r, 0, Math.PI * 2);
@@ -304,86 +280,52 @@
         }
 
         function drawOrbits() {
-            // Orbita del Sole
+            const sunPos = getBodyCoords(sunAngle, sunOrbitRadius);
+            const moonPos = getBodyCoords(moonAngle, moonOrbitRadius);
+
             ctx.save();
+            // Orbita Sole
             ctx.beginPath();
             ctx.arc(centerX, centerY, sunOrbitRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(251, 191, 36, 0.18)';
+            ctx.strokeStyle = isSunGravityActive ? 'rgba(245, 158, 11, 0.22)' : 'rgba(148, 163, 184, 0.1)';
             ctx.setLineDash([6, 6]);
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Orbita della Luna
+            // Orbita Luna
             ctx.beginPath();
             ctx.arc(centerX, centerY, moonOrbitRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.strokeStyle = isMoonGravityActive ? 'rgba(217, 70, 239, 0.28)' : 'rgba(148, 163, 184, 0.1)';
             ctx.setLineDash([4, 5]);
             ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.restore();
 
-            // Linee direttrici di allineamento Terra-Sole e Terra-Luna
-            const sunPos = getBodyCoords(sunAngle, sunOrbitRadius);
-            const moonPos = getBodyCoords(moonAngle, moonOrbitRadius);
-
+            // Linee direttrici di congiunzione
             ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(sunPos.x, sunPos.y);
-            ctx.strokeStyle = 'rgba(251, 191, 36, 0.22)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(moonPos.x, moonPos.y);
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+            if (isSunGravityActive) {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(sunPos.x, sunPos.y);
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+            }
+            if (isMoonGravityActive) {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(moonPos.x, moonPos.y);
+                ctx.strokeStyle = 'rgba(217, 70, 239, 0.35)';
+                ctx.lineWidth = 1.6;
+                ctx.stroke();
+            }
             ctx.restore();
         }
 
         function drawOceanEnvelope() {
-            const segments = 180;
+            const segments = 200;
 
-            // 1. Profili separati tratteggiati (opzionali) per confrontare visivamente contributo Luna vs Sole
-            if (document.getElementById('chk-components').checked) {
-                // Ellisse teorica solo Sole (giallo tratteggiato)
-                ctx.save();
-                ctx.beginPath();
-                for (let i = 0; i <= segments; i++) {
-                    const theta = (i / segments) * Math.PI * 2;
-                    const rSunOnly = baseOceanRadius + SUN_TIDE_AMP * Math.cos(2 * (theta - sunAngle));
-                    const x = centerX + Math.cos(theta) * rSunOnly;
-                    const y = centerY - Math.sin(theta) * rSunOnly;
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
-                ctx.setLineDash([4, 4]);
-                ctx.lineWidth = 1.4;
-                ctx.stroke();
-
-                // Ellisse teorica solo Luna (bianco/azzurro tratteggiato)
-                ctx.beginPath();
-                for (let i = 0; i <= segments; i++) {
-                    const theta = (i / segments) * Math.PI * 2;
-                    const rMoonOnly = baseOceanRadius + MOON_TIDE_AMP * Math.cos(2 * (theta - moonAngle));
-                    const x = centerX + Math.cos(theta) * rMoonOnly;
-                    const y = centerY - Math.sin(theta) * rMoonOnly;
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
-                ctx.setLineDash([3, 3]);
-                ctx.lineWidth = 1.4;
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 2. Striscia azzurra continua risultante (Involucro Idrico degli Oceani)
+            // 1. INVOLUCRO OCEANICO RISULTANTE (Striscia azzurra/ciano brillante)
             ctx.save();
             ctx.beginPath();
             for (let i = 0; i <= segments; i++) {
@@ -396,28 +338,72 @@
             }
             ctx.closePath();
 
-            // Riempimento azzurro luminoso semitrasparente
             const waterGrad = ctx.createRadialGradient(centerX, centerY, earthRadius, centerX, centerY, baseOceanRadius + MOON_TIDE_AMP + SUN_TIDE_AMP);
-            waterGrad.addColorStop(0, 'rgba(14, 165, 233, 0.55)');
-            waterGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.42)');
-            waterGrad.addColorStop(1, 'rgba(125, 211, 252, 0.65)');
+            waterGrad.addColorStop(0, 'rgba(6, 182, 212, 0.52)');
+            waterGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.42)');
+            waterGrad.addColorStop(1, 'rgba(125, 211, 252, 0.68)');
             ctx.fillStyle = waterGrad;
             ctx.fill();
 
-            // Bordo esterno nitido della superficie marina
             ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 2.6;
-            ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
-            ctx.shadowBlur = 10;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = 'rgba(56, 189, 248, 0.65)';
+            ctx.shadowBlur = 12;
             ctx.stroke();
             ctx.restore();
 
-            // 3. Cerchio di riferimento livello medio (senza maree)
+            // 2. Cerchio di livello medio (senza maree)
             ctx.beginPath();
             ctx.arc(centerX, centerY, baseOceanRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
             ctx.lineWidth = 1;
             ctx.stroke();
+
+            // 3. PROFILI SEPARATI AD ALTO CONTRASTO (Magenta per Luna, Arancione/Oro per Sole)
+            if (document.getElementById('chk-components').checked) {
+                // Profilo SOLO SOLE: Linea spessa ARANCIONE / ORO ACCESO (#f59e0b) con tratteggio largo
+                if (isSunGravityActive) {
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let i = 0; i <= segments; i++) {
+                        const theta = (i / segments) * Math.PI * 2;
+                        const rSunOnly = baseOceanRadius + SUN_TIDE_AMP * Math.cos(2 * (theta - sunAngle));
+                        const x = centerX + Math.cos(theta) * rSunOnly;
+                        const y = centerY - Math.sin(theta) * rSunOnly;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.setLineDash([10, 6]);
+                    ctx.lineWidth = 2.6;
+                    ctx.shadowColor = 'rgba(245, 158, 11, 0.55)';
+                    ctx.shadowBlur = 6;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // Profilo SOLO LUNA: Linea spessa MAGENTA / VIOLA ACCESO (#d946ef) continua
+                if (isMoonGravityActive) {
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let i = 0; i <= segments; i++) {
+                        const theta = (i / segments) * Math.PI * 2;
+                        const rMoonOnly = baseOceanRadius + MOON_TIDE_AMP * Math.cos(2 * (theta - moonAngle));
+                        const x = centerX + Math.cos(theta) * rMoonOnly;
+                        const y = centerY - Math.sin(theta) * rMoonOnly;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = '#d946ef';
+                    ctx.lineWidth = 2.6;
+                    ctx.shadowColor = 'rgba(217, 70, 239, 0.6)';
+                    ctx.shadowBlur = 6;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
         }
 
         function drawArrow(fromX, fromY, toX, toY, color, lineWidth = 2.5) {
@@ -449,7 +435,17 @@
         function drawTidalVectorsAndLabels() {
             if (!document.getElementById('chk-vectors').checked) return;
 
-            // Trova i due massimi e i due minimi dell'involucro oceanico
+            // Se entrambe le forze sono disattivate, nessuna alta/bassa marea
+            if (!isMoonGravityActive && !isSunGravityActive) {
+                ctx.save();
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillStyle = '#94a3b8';
+                ctx.textAlign = 'center';
+                ctx.fillText('LIVELLO MARINO UNIFORME (Nessuna forza attiva)', centerX, centerY - baseOceanRadius - 18);
+                ctx.restore();
+                return;
+            }
+
             let maxR = -Infinity;
             let maxTheta = 0;
             let minR = Infinity;
@@ -468,15 +464,15 @@
                 }
             }
 
-            // Frecce di rigonfiamento sui due picchi opposti di Alta Marea
-            [maxTheta, maxTheta + Math.PI].forEach((th, idx) => {
+            // Due picchi opposti di Alta Marea
+            [maxTheta, maxTheta + Math.PI].forEach(th => {
                 const start = getBodyCoords(th, baseOceanRadius - 2);
                 const end = getBodyCoords(th, maxR + 18);
                 drawArrow(start.x, start.y, end.x, end.y, '#7dd3fc', 2.4);
 
-                const lblPos = getBodyCoords(th, maxR + 34);
+                const lblPos = getBodyCoords(th, maxR + 33);
                 ctx.save();
-                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.font = '800 11px Inter, sans-serif';
                 ctx.fillStyle = '#bae6fd';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -484,13 +480,13 @@
                 ctx.restore();
             });
 
-            // Etichette Bassa Marea sui due minimi perpendicolari
+            // Due depressioni opposte di Bassa Marea
             [minTheta, minTheta + Math.PI].forEach(th => {
                 const start = getBodyCoords(th, baseOceanRadius + 10);
                 const end = getBodyCoords(th, minR - 2);
                 drawArrow(start.x, start.y, end.x, end.y, 'rgba(148, 163, 184, 0.85)', 1.8);
 
-                const lblPos = getBodyCoords(th, minR + 24);
+                const lblPos = getBodyCoords(th, minR + 22);
                 ctx.save();
                 ctx.font = '600 10px Inter, sans-serif';
                 ctx.fillStyle = '#94a3b8';
@@ -505,20 +501,18 @@
             ctx.save();
             ctx.translate(centerX, centerY);
 
-            // Ombra notturna sulla Terra opposta al Sole (a livello di visualizzazione 2D polare)
             ctx.beginPath();
             ctx.arc(0, 0, earthRadius, 0, Math.PI * 2);
             ctx.fillStyle = '#1e3a8a';
             ctx.fill();
 
-            // Clipping circolare per disegnare i continenti che ruotano
             ctx.beginPath();
             ctx.arc(0, 0, earthRadius, 0, Math.PI * 2);
             ctx.clip();
 
             ctx.rotate(-earthRotation);
 
-            // Continenti stilizzati visti dal Polo Nord
+            // Continenti visti dal Polo Nord
             ctx.fillStyle = '#22c55e';
             const continents = [
                 { a: 0.3, d: 0.45, rx: 0.36, ry: 0.24, rot: 0.2 },
@@ -536,7 +530,7 @@
                 ctx.restore();
             });
 
-            // Meridiani rotanti
+            // Reticolato meridiani e parallelo
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
             ctx.lineWidth = 1;
             for (let i = 0; i < 6; i++) {
@@ -546,45 +540,40 @@
                 ctx.lineTo(Math.cos(a) * earthRadius, Math.sin(a) * earthRadius);
                 ctx.stroke();
             }
-
-            // Parallelo intermedio
             ctx.beginPath();
             ctx.arc(0, 0, earthRadius * 0.55, 0, Math.PI * 2);
             ctx.stroke();
 
             ctx.restore();
 
-            // Terminatore Dì/Notte sulla sfera terrestre orientato verso il Sole
+            // Ombra notturna terrestre opposta al Sole
             ctx.save();
             ctx.translate(centerX, centerY);
-            ctx.rotate(-sunAngle); // Allinea asse X positivo verso il Sole
+            ctx.rotate(-sunAngle);
             ctx.beginPath();
             ctx.arc(0, 0, earthRadius, Math.PI / 2, -Math.PI / 2, false);
             ctx.fillStyle = 'rgba(2, 6, 23, 0.58)';
             ctx.fill();
 
-            // Bordo terrestre nitido
             ctx.beginPath();
             ctx.arc(0, 0, earthRadius, 0, Math.PI * 2);
             ctx.strokeStyle = '#60a5fa';
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Polo Nord al centro
             ctx.beginPath();
             ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
             ctx.fillStyle = '#f8fafc';
             ctx.fill();
             ctx.restore();
 
-            // Osservatore rosso sulla costa che ruota con la Terra
+            // Punto di riferimento sulla costa (Porto / Osservatore)
             if (document.getElementById('chk-observer').checked) {
-                const obsAngle = earthRotation; // angolo rispetto all'asse X positivo
+                const obsAngle = earthRotation;
                 const obsLandPos = getBodyCoords(obsAngle, earthRadius);
                 const waterHeight = getOceanRadiusAt(obsAngle) - baseOceanRadius;
 
                 ctx.save();
-                // Punto osservatore sulla costa
                 ctx.beginPath();
                 ctx.arc(obsLandPos.x, obsLandPos.y, 5, 0, Math.PI * 2);
                 ctx.fillStyle = '#f43f5e';
@@ -593,7 +582,6 @@
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
 
-                // Colonnina d'acqua sopra l'osservatore
                 const obsWaterPos = getBodyCoords(obsAngle, getOceanRadiusAt(obsAngle));
                 ctx.beginPath();
                 ctx.moveTo(obsLandPos.x, obsLandPos.y);
@@ -602,9 +590,11 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Etichetta stato marea dell'osservatore
-                const statusText = waterHeight > 4 ? 'Osservatore: Alta marea' : (waterHeight < -4 ? 'Osservatore: Bassa marea' : 'Osservatore: Livello medio');
-                const badgePos = getBodyCoords(obsAngle, getOceanRadiusAt(obsAngle) + 16);
+                let statusText = 'Porto: Livello medio';
+                if (isMoonGravityActive || isSunGravityActive) {
+                    statusText = waterHeight > 4 ? 'Porto: Alta marea' : (waterHeight < -4 ? 'Porto: Bassa marea' : 'Porto: Livello medio');
+                }
+                const badgePos = getBodyCoords(obsAngle, getOceanRadiusAt(obsAngle) + 15);
                 ctx.font = 'bold 10px Inter, sans-serif';
                 ctx.fillStyle = '#fecdd3';
                 ctx.textAlign = 'center';
@@ -615,21 +605,21 @@
 
         function drawSun() {
             const pos = getBodyCoords(sunAngle, sunOrbitRadius);
-            const sunR = hoveredBody === 'sun' || draggingBody === 'sun' ? 30 : 26;
+            const sunR = hoveredBody === 'sun' || draggingBody === 'sun' ? 28 : 24;
 
             ctx.save();
-            // Alone solare
-            const glow = ctx.createRadialGradient(pos.x, pos.y, sunR * 0.4, pos.x, pos.y, sunR * 2.6);
+            ctx.globalAlpha = isSunGravityActive ? 1.0 : 0.35;
+
+            const glow = ctx.createRadialGradient(pos.x, pos.y, sunR * 0.4, pos.x, pos.y, sunR * 2.5);
             glow.addColorStop(0, 'rgba(253, 224, 71, 0.85)');
             glow.addColorStop(0.4, 'rgba(245, 158, 11, 0.35)');
             glow.addColorStop(1, 'rgba(245, 158, 11, 0)');
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, sunR * 2.6, 0, Math.PI * 2);
+            ctx.arc(pos.x, pos.y, sunR * 2.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Disco solare
-            const diskGrad = ctx.createRadialGradient(pos.x - 5, pos.y - 5, 2, pos.x, pos.y, sunR);
+            const diskGrad = ctx.createRadialGradient(pos.x - 4, pos.y - 4, 2, pos.x, pos.y, sunR);
             diskGrad.addColorStop(0, '#fef9c3');
             diskGrad.addColorStop(0.6, '#facc15');
             diskGrad.addColorStop(1, '#ea580c');
@@ -638,78 +628,71 @@
             ctx.fillStyle = diskGrad;
             ctx.fill();
 
-            // Anello di presa interattivo
             if (hoveredBody === 'sun' || draggingBody === 'sun') {
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, sunR + 6, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(254, 240, 138, 0.9)';
+                ctx.strokeStyle = 'rgba(254, 240, 138, 0.95)';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
 
-            // Etichetta SOLE
-            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.font = 'bold 11px Inter, sans-serif';
             ctx.fillStyle = '#fde047';
             ctx.textAlign = 'center';
-            ctx.fillText('SOLE', pos.x, pos.y + sunR + 16);
+            ctx.fillText(isSunGravityActive ? 'SOLE' : 'SOLE (Forza OFF)', pos.x, pos.y + sunR + 15);
             ctx.restore();
         }
 
         function drawMoon() {
             const pos = getBodyCoords(moonAngle, moonOrbitRadius);
-            const moonR = hoveredBody === 'moon' || draggingBody === 'moon' ? 17 : 14.5;
+            const moonR = hoveredBody === 'moon' || draggingBody === 'moon' ? 16 : 13.5;
 
             ctx.save();
-            // Alone lunare
-            const glow = ctx.createRadialGradient(pos.x, pos.y, moonR * 0.5, pos.x, pos.y, moonR * 2);
-            glow.addColorStop(0, 'rgba(226, 232, 240, 0.45)');
-            glow.addColorStop(1, 'rgba(226, 232, 240, 0)');
+            ctx.globalAlpha = isMoonGravityActive ? 1.0 : 0.35;
+
+            const glow = ctx.createRadialGradient(pos.x, pos.y, moonR * 0.5, pos.x, pos.y, moonR * 2.1);
+            glow.addColorStop(0, 'rgba(217, 70, 239, 0.45)');
+            glow.addColorStop(1, 'rgba(217, 70, 239, 0)');
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, moonR * 2, 0, Math.PI * 2);
+            ctx.arc(pos.x, pos.y, moonR * 2.1, 0, Math.PI * 2);
             ctx.fill();
 
-            // Base scura della Luna
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, moonR, 0, Math.PI * 2);
             ctx.fillStyle = '#334155';
             ctx.fill();
 
-            // Emisfero illuminato dal Sole (orientato in direzione del Sole)
             ctx.save();
             ctx.translate(pos.x, pos.y);
-            ctx.rotate(-sunAngle); // X positivo punta verso il Sole
+            ctx.rotate(-sunAngle);
             ctx.beginPath();
             ctx.arc(0, 0, moonR, -Math.PI / 2, Math.PI / 2, false);
-            ctx.fillStyle = '#f1f5f9';
+            ctx.fillStyle = '#f8fafc';
             ctx.fill();
             ctx.restore();
 
-            // Bordo Luna
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, moonR, 0, Math.PI * 2);
-            ctx.strokeStyle = '#cbd5e1';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#e879f9';
+            ctx.lineWidth = 1.8;
             ctx.stroke();
 
-            // Anello di presa interattivo
             if (hoveredBody === 'moon' || draggingBody === 'moon') {
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, moonR + 6, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
+                ctx.strokeStyle = 'rgba(240, 171, 252, 0.95)';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
 
-            // Etichetta LUNA
-            ctx.font = 'bold 12px Inter, sans-serif';
-            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillStyle = '#f0abfc';
             ctx.textAlign = 'center';
-            ctx.fillText('LUNA', pos.x, pos.y + moonR + 15);
+            ctx.fillText(isMoonGravityActive ? 'LUNA' : 'LUNA (Forza OFF)', pos.x, pos.y + moonR + 14);
             ctx.restore();
         }
 
-        // --- AGGIORNAMENTO TESTI DIDATTICI E FASE LUNARE ---
         function updateTideInfo() {
             const moonDeg = Math.round(((moonAngle * 180) / Math.PI + 360) % 360);
             const sunDeg = Math.round(((sunAngle * 180) / Math.PI + 360) % 360);
@@ -719,51 +702,60 @@
             document.getElementById('moon-slider').value = moonDeg;
             document.getElementById('sun-slider').value = sunDeg;
 
-            // Angolo relativo Luna - Sole in [0, 360)
-            let relDeg = (moonDeg - sunDeg + 360) % 360;
-
+            const relDeg = (moonDeg - sunDeg + 360) % 360;
             const phaseBadge = document.getElementById('phase-badge');
             const tideTitle = document.getElementById('tide-type-title');
             const tideDesc = document.getElementById('tide-type-desc');
 
-            // Determina Fase Lunare
-            if (relDeg < 22.5 || relDeg >= 337.5) {
-                phaseBadge.textContent = '🌑 Novilunio (Congiunzione)';
-            } else if (relDeg < 67.5) {
-                phaseBadge.textContent = '🌒 Luna Crescente';
-            } else if (relDeg < 112.5) {
-                phaseBadge.textContent = '🌓 Primo Quarto';
-            } else if (relDeg < 157.5) {
-                phaseBadge.textContent = '🌔 Gibbosa Crescente';
-            } else if (relDeg < 202.5) {
-                phaseBadge.textContent = '🌕 Plenilunio (Opposizione)';
-            } else if (relDeg < 247.5) {
-                phaseBadge.textContent = '🌖 Gibbosa Calante';
-            } else if (relDeg < 292.5) {
-                phaseBadge.textContent = '🌗 Ultimo Quarto';
-            } else {
-                phaseBadge.textContent = '🌘 Luna Calante';
+            if (relDeg < 22.5 || relDeg >= 337.5) phaseBadge.textContent = '🌑 Novilunio';
+            else if (relDeg < 67.5) phaseBadge.textContent = '🌒 Luna Crescente';
+            else if (relDeg < 112.5) phaseBadge.textContent = '🌓 Primo Quarto';
+            else if (relDeg < 157.5) phaseBadge.textContent = '🌔 Gibbosa Crescente';
+            else if (relDeg < 202.5) phaseBadge.textContent = '🌕 Plenilunio';
+            else if (relDeg < 247.5) phaseBadge.textContent = '🌖 Gibbosa Calante';
+            else if (relDeg < 292.5) phaseBadge.textContent = '🌗 Ultimo Quarto';
+            else phaseBadge.textContent = '🌘 Luna Calante';
+
+            // Casi di isolamento forze gravitazionali
+            if (!isMoonGravityActive && !isSunGravityActive) {
+                tideTitle.textContent = 'Nessuna Forza Mareale Attiva';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-slate-400 leading-snug';
+                tideDesc.textContent = 'Senza attrazione differenziale di Luna e Sole, gli oceani mantengono un livello sferico uniforme.';
+                return;
             }
 
-            // Calcola fattore di allineamento cos(2 * delta_theta) -> +1 = sizigia, -1 = quadratura
-            const alignment = Math.cos(2 * (moonAngle - sunAngle));
+            if (isMoonGravityActive && !isSunGravityActive) {
+                tideTitle.textContent = 'Solo Marea Lunare (69% del totale)';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-fuchsia-300 leading-snug';
+                tideDesc.textContent = 'Influenza del Sole disattivata: i due rigonfiamenti oceanici seguono esclusivamente l’allineamento con la Luna.';
+                return;
+            }
 
+            if (!isMoonGravityActive && isSunGravityActive) {
+                tideTitle.textContent = 'Solo Marea Solare (31% del totale)';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-amber-300 leading-snug';
+                tideDesc.textContent = 'Influenza della Luna disattivata: l’ampiezza della marea è meno della metà (0,46×) rispetto a quella lunare.';
+                return;
+            }
+
+            // Entrambe le forze attive
+            const alignment = Math.cos(2 * (moonAngle - sunAngle));
             if (alignment > 0.65) {
-                tideTitle.textContent = 'Marea Sigiziale (Marea Viva)';
-                tideTitle.className = 'text-sm font-bold text-amber-300 mb-1';
-                tideDesc.textContent = 'Sole, Terra e Luna sono allineati: i rigonfiamenti solare e lunare si sovrappongono generando l’escursione massima.';
+                tideTitle.textContent = 'Marea Viva / Sigiziale - Ampiezza Massima';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-amber-300 leading-snug';
+                tideDesc.textContent = 'Sole, Terra e Luna allineati: i profili magenta (Luna) e arancio (Sole) si sommano.';
             } else if (alignment < -0.65) {
-                tideTitle.textContent = 'Marea di Quadratura (Marea Morta)';
-                tideTitle.className = 'text-sm font-bold text-cyan-300 mb-1';
-                tideDesc.textContent = 'Sole e Luna formano un angolo di 90° rispetto alla Terra: l’attrazione solare attenua parzialmente quella lunare, riducendo l’ampiezza della marea.';
+                tideTitle.textContent = 'Marea Morta / Quadratura - Ampiezza Minima';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-cyan-300 leading-snug';
+                tideDesc.textContent = 'Sole e Luna a 90°: il Sole attenua l’effetto lunare, ma prevale comunque la Luna.';
             } else {
                 tideTitle.textContent = 'Marea Intermedia';
-                tideTitle.className = 'text-sm font-bold text-sky-300 mb-1';
-                tideDesc.textContent = 'La deformazione degli oceani è orientata principalmente verso la Luna (effetto 2,2× maggiore), ma deviata dall’attrazione del Sole.';
+                tideTitle.className = 'text-xs sm:text-sm font-extrabold text-sky-300 leading-snug';
+                tideDesc.textContent = 'Il rigonfiamento segue principalmente la Luna (profilo magenta), leggermente deviato dal Sole (profilo arancio).';
             }
         }
 
-        // --- GESTIONE INTERAZIONE MOUSE / TOUCH (DRAG & DROP) ---
+        // --- INTERAZIONE DRAG & DROP MOUSE / TOUCH ---
         function getPointerPos(e) {
             if (e.touches && e.touches.length > 0) {
                 return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -776,14 +768,11 @@
             const moonPos = getBodyCoords(moonAngle, moonOrbitRadius);
             const sunPos = getBodyCoords(sunAngle, sunOrbitRadius);
 
-            const distMoon = Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y);
-            const distSun = Math.hypot(pt.x - sunPos.x, pt.y - sunPos.y);
-
-            if (distMoon <= 32) {
+            if (Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y) <= 32) {
                 draggingBody = 'moon';
                 stopLunarAnim();
                 canvas.style.cursor = 'grabbing';
-            } else if (distSun <= 44) {
+            } else if (Math.hypot(pt.x - sunPos.x, pt.y - sunPos.y) <= 44) {
                 draggingBody = 'sun';
                 stopLunarAnim();
                 canvas.style.cursor = 'grabbing';
@@ -792,29 +781,21 @@
 
         function handlePointerMove(e) {
             const pt = getPointerPos(e);
-
             if (draggingBody) {
                 e.preventDefault();
                 const newAng = getAngleFromPointer(pt.x, pt.y);
-                if (draggingBody === 'moon') {
-                    moonAngle = newAng;
-                } else if (draggingBody === 'sun') {
-                    sunAngle = newAng;
-                }
+                if (draggingBody === 'moon') moonAngle = newAng;
+                else if (draggingBody === 'sun') sunAngle = newAng;
                 updateTideInfo();
                 return;
             }
 
-            // Hover feedback
             const moonPos = getBodyCoords(moonAngle, moonOrbitRadius);
             const sunPos = getBodyCoords(sunAngle, sunOrbitRadius);
-            const distMoon = Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y);
-            const distSun = Math.hypot(pt.x - sunPos.x, pt.y - sunPos.y);
-
-            if (distMoon <= 30) {
+            if (Math.hypot(pt.x - moonPos.x, pt.y - moonPos.y) <= 30) {
                 hoveredBody = 'moon';
                 canvas.style.cursor = 'grab';
-            } else if (distSun <= 42) {
+            } else if (Math.hypot(pt.x - sunPos.x, pt.y - sunPos.y) <= 42) {
                 hoveredBody = 'sun';
                 canvas.style.cursor = 'grab';
             } else {
@@ -833,12 +814,21 @@
         canvas.addEventListener('mousedown', handlePointerDown);
         window.addEventListener('mousemove', handlePointerMove);
         window.addEventListener('mouseup', handlePointerUp);
-
         canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
         window.addEventListener('touchmove', handlePointerMove, { passive: false });
         window.addEventListener('touchend', handlePointerUp);
 
         // --- CONTROLLI UI ---
+        document.getElementById('toggle-moon-gravity').addEventListener('change', (e) => {
+            isMoonGravityActive = e.target.checked;
+            updateTideInfo();
+        });
+
+        document.getElementById('toggle-sun-gravity').addEventListener('change', (e) => {
+            isSunGravityActive = e.target.checked;
+            updateTideInfo();
+        });
+
         document.getElementById('moon-slider').addEventListener('input', (e) => {
             stopLunarAnim();
             moonAngle = (parseFloat(e.target.value) * Math.PI) / 180;
@@ -851,21 +841,28 @@
             updateTideInfo();
         });
 
-        // Pulsanti rapidi configurazione
-        function setPresetAngles(moonDegRelToSun) {
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        function setPresetAngles(moonDegRelToSun, activeBtn) {
             stopLunarAnim();
+            presetButtons.forEach(b => {
+                b.classList.remove('bg-sky-500/25', 'text-sky-200', 'border', 'border-sky-400/40');
+                b.classList.add('text-slate-300');
+            });
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-300');
+                activeBtn.classList.add('bg-sky-500/25', 'text-sky-200', 'border', 'border-sky-400/40');
+            }
             const sunDeg = (sunAngle * 180) / Math.PI;
             const targetMoonDeg = (sunDeg + moonDegRelToSun) % 360;
             moonAngle = (targetMoonDeg * Math.PI) / 180;
             updateTideInfo();
         }
 
-        document.getElementById('btn-new-moon').addEventListener('click', () => setPresetAngles(0));
-        document.getElementById('btn-first-quarter').addEventListener('click', () => setPresetAngles(90));
-        document.getElementById('btn-full-moon').addEventListener('click', () => setPresetAngles(180));
-        document.getElementById('btn-last-quarter').addEventListener('click', () => setPresetAngles(270));
+        document.getElementById('btn-new-moon').addEventListener('click', (e) => setPresetAngles(0, e.currentTarget));
+        document.getElementById('btn-first-quarter').addEventListener('click', (e) => setPresetAngles(90, e.currentTarget));
+        document.getElementById('btn-full-moon').addEventListener('click', (e) => setPresetAngles(180, e.currentTarget));
+        document.getElementById('btn-last-quarter').addEventListener('click', (e) => setPresetAngles(270, e.currentTarget));
 
-        // Animazione Mese Lunare
         const btnAnimLunar = document.getElementById('btn-anim-lunar');
         const animLunarIcon = document.getElementById('anim-lunar-icon');
         const animLunarText = document.getElementById('anim-lunar-text');
@@ -873,7 +870,7 @@
         function stopLunarAnim() {
             isLunarAnimating = false;
             animLunarIcon.textContent = '▶';
-            animLunarText.textContent = 'Mese Lunare';
+            animLunarText.textContent = 'Orbita Luna';
             btnAnimLunar.classList.remove('bg-amber-600', 'hover:bg-amber-500');
             btnAnimLunar.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
         }
@@ -890,7 +887,6 @@
             }
         });
 
-        // Animazione Rotazione Terrestre
         const btnAnimEarth = document.getElementById('btn-anim-earth');
         const animEarthIcon = document.getElementById('anim-earth-icon');
         const animEarthText = document.getElementById('anim-earth-text');
@@ -910,17 +906,6 @@
             }
         });
 
-        // Toggle pannello mobile
-        const controlPanel = document.getElementById('control-panel');
-        document.getElementById('toggle-panel-btn').addEventListener('click', () => {
-            controlPanel.classList.add('hidden');
-            document.getElementById('open-panel-btn').classList.remove('hidden');
-        });
-        document.getElementById('open-panel-btn').addEventListener('click', () => {
-            controlPanel.classList.remove('hidden');
-            document.getElementById('open-panel-btn').classList.add('hidden');
-        });
-
         // --- LOOP PRINCIPALE ---
         updateTideInfo();
 
@@ -933,7 +918,6 @@
 
             if (isLunarAnimating) {
                 moonAngle = (moonAngle + 0.012) % (Math.PI * 2);
-                // Il Sole avanza molto più lentamente (~1/12,4 rispetto alla Luna)
                 sunAngle = (sunAngle + 0.00095) % (Math.PI * 2);
                 updateTideInfo();
             }
